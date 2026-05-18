@@ -437,6 +437,18 @@ const GameEngine = {
         document.getElementById('hp-bar').style.width = `${hpPercent}%`;
         document.getElementById('hp-txt').innerText = `${this.player.hp} / ${maxHp}`;
 
+        // 2b. Yatay Mobil Mini HUD (landscape telefon)
+        const mobHpBar = document.getElementById('mob-hp-bar');
+        if (mobHpBar) mobHpBar.style.width = `${hpPercent}%`;
+        const mobHpTxt = document.getElementById('mob-hp-txt');
+        if (mobHpTxt) mobHpTxt.textContent = `${this.player.hp}/${maxHp}`;
+        const mobFloor = document.getElementById('mob-floor-val');
+        if (mobFloor) mobFloor.textContent = this.floor;
+        const mobLevel = document.getElementById('mob-level-val');
+        if (mobLevel) mobLevel.textContent = this.player.level;
+        const mobGold = document.getElementById('mob-gold-val');
+        if (mobGold) mobGold.textContent = this.player.gold;
+
         const xpPercent = Math.max(0, (this.player.xp / this.player.nextLevelXp) * 100);
         document.getElementById('xp-bar').style.width = `${xpPercent}%`;
         document.getElementById('xp-txt').innerText = `${this.player.xp} / ${this.player.nextLevelXp}`;
