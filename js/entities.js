@@ -1375,7 +1375,7 @@ class Player {
     die(game) {
         SoundEngine.playDeath();
         game.addLog("Elendin! Zindan seni yuttu.", "death");
-        game.gameOver();
+        game.loseLife();
     }
 
     // Eşya Toplama Mantığı

@@ -21,7 +21,8 @@ const GameEngine = {
     
     floor: 1,
     killsCount: 0,
-    state: 'start', // 'start', 'playing', 'upgrade', 'gameover'
+    lives: 3,
+    state: 'start', // 'start', 'playing', 'upgrade', 'gameover', 'respawning'
     
     // Portal animasyonu
     portalFrame: 1,
@@ -98,6 +99,7 @@ const GameEngine = {
     startNewGame() {
         this.floor = 1;
         this.killsCount = 0;
+        this.lives = 3;
         this.enemies = [];
         this.chests = [];
         this.items = [];
@@ -244,17 +246,60 @@ const GameEngine = {
         }
     },
 
+    // Can kaybı: 3 can sistemi
+    loseLife() {
+        this.lives = Math.max(0, this.lives - 1);
+        this.updateUI();
+
+        if (this.lives > 0) {
+            // Can var — aynı katta respawn
+            this.state = 'respawning';
+            this.addLog(`💔 CAN KAYBETTIN! ${this.lives} canın kaldı. Yeniden doğuyorsun...`, "death");
+            setTimeout(() => this.respawnPlayer(), 1500);
+        } else {
+            // Tüm canlar bitti — gerçek game over
+            this.gameOver();
+        }
+    },
+
+    // Aynı katta yeniden doğ (envanter/ekipman korunur)
+    respawnPlayer() {
+        if (!this.player || this.state !== 'respawning') return;
+
+        // HP doldur, debuffleri temizle
+        this.player.hp = this.player.getMaxHp();
+        this.player.burnTimer     = 0;
+        this.player.poisonTimer   = 0;
+        this.player.slowTimer     = 0;
+        this.player.burnTickTimer = 0;
+        this.player.poisonTickTimer = 0;
+        this.player.regenTimer    = 0;
+
+        // Kat başlangıç noktasına ışınla
+        this.player.x = World.spawnPoints.player.x;
+        this.player.y = World.spawnPoints.player.y;
+
+        // 2 saniyelik dokunulmazlık (120 frame)
+        this.player.invincibleTimer = 120;
+
+        this.state = 'playing';
+        this.addLog("✨ Yeniden doğdun! HP doldu, 2sn dokunulmazlık kazandın.", "system");
+
+        if (SoundEngine && !SoundEngine.isMuted) SoundEngine.playMusic();
+        this.updateUI();
+    },
+
     // Oyuncu Öldüğünde (Game Over)
     gameOver() {
         this.state = 'gameover';
-        
+
         // Öldün ekranı
         document.getElementById('summary-floor').innerText = this.floor;
         document.getElementById('summary-gold').innerText = this.player.gold;
         document.getElementById('summary-kills').innerText = this.killsCount;
-        
+
         document.getElementById('screen-gameover').classList.add('active');
-        
+
         SoundEngine.stopMusic();
     },
 
@@ -430,6 +475,18 @@ const GameEngine = {
         // 1. Üst HUD Barı
         document.getElementById('floor-val').innerText = this.floor;
         document.getElementById('gold-val').innerText = this.player.gold;
+
+        // 1b. Can (lives) kalpleri
+        const livesEl = document.getElementById('lives-display');
+        if (livesEl) {
+            livesEl.innerHTML = '';
+            for (let i = 0; i < 3; i++) {
+                const h = document.createElement('span');
+                h.className = i < this.lives ? 'life-heart active' : 'life-heart empty';
+                h.textContent = '♥';
+                livesEl.appendChild(h);
+            }
+        }
 
         // 2. Can (HP) ve Tecrübe (XP) Barları
         const maxHp = this.player.getMaxHp();

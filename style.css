@@ -134,6 +134,32 @@ h1.pixel-text {
     gap: 20px;
 }
 
+/* ─── 3 CAN (LIVES) KALPLERİ ─── */
+.lives-display {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.life-heart {
+    font-size: 18px;
+    line-height: 1;
+    transition: opacity 0.3s ease, filter 0.3s ease;
+    user-select: none;
+}
+
+.life-heart.active {
+    color: #ff3b30;
+    filter: drop-shadow(0 0 5px #ff3b30);
+    opacity: 1;
+}
+
+.life-heart.empty {
+    color: #444;
+    filter: none;
+    opacity: 0.35;
+}
+
 .floor-badge, .gold-badge {
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.08);
