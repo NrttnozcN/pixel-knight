@@ -2058,11 +2058,28 @@ class Boss {
             if (pDist < this.slamRadius && pDist > this.slamRadius - 18) {
                 if (player.invincibleTimer === 0) {
                     const ang = Math.atan2(player.y - this.y, player.x - this.x);
-                    // Slam hasarı faza göre artar
                     const slamDmg = 10 + (this.phase - 1) * 6;
                     player.takeDamage(slamDmg, game);
-                    player.x += Math.cos(ang) * 18;
-                    player.y += Math.sin(ang) * 18;
+                    // Duvar kontrolü ile geri savurma — duvara gömülmeyi önler
+                    const kbDist = 18;
+                    const kbX = Math.cos(ang) * kbDist;
+                    const kbY = Math.sin(ang) * kbDist;
+                    if (!World.checkCircleCollision(player.x + kbX, player.y, player.radius)) {
+                        player.x += kbX;
+                    } else {
+                        for (let s = kbDist - 4; s >= 0; s -= 4) {
+                            const nx = player.x + Math.cos(ang) * s;
+                            if (!World.checkCircleCollision(nx, player.y, player.radius)) { player.x = nx; break; }
+                        }
+                    }
+                    if (!World.checkCircleCollision(player.x, player.y + kbY, player.radius)) {
+                        player.y += kbY;
+                    } else {
+                        for (let s = kbDist - 4; s >= 0; s -= 4) {
+                            const ny = player.y + Math.sin(ang) * s;
+                            if (!World.checkCircleCollision(player.x, ny, player.radius)) { player.y = ny; break; }
+                        }
+                    }
                 }
             }
         }
@@ -2088,8 +2105,19 @@ class Boss {
 
             const nextX = this.x + vx;
             const nextY = this.y + vy;
-            if (World.isWalkable(nextX, this.y)) this.x = nextX;
-            if (World.isWalkable(this.x, nextY)) this.y = nextY;
+            const bR = 20; // Hareket için gerçekçi çarpışma yarıçapı
+            const canX = !World.checkCircleCollision(nextX, this.y, bR);
+            const canY = !World.checkCircleCollision(this.x, nextY, bR);
+            if (canX) this.x = nextX;
+            if (canY) this.y = nextY;
+            // Köşe sıkışma önleme: her iki yön bloklu ise yanal kaydırma dene
+            if (!canX && !canY) {
+                const perp = angle + Math.PI / 2;
+                if (!World.checkCircleCollision(this.x + Math.cos(perp) * this.speed, this.y, bR))
+                    this.x += Math.cos(perp) * this.speed;
+                if (!World.checkCircleCollision(this.x, this.y + Math.sin(perp) * this.speed, bR))
+                    this.y += Math.sin(perp) * this.speed;
+            }
 
             // Doğrudan temas hasarı (cooldown'lu)
             if (distance < 40 && this.meleeCooldownTimer === 0) {
