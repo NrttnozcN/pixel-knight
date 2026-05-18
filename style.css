@@ -913,28 +913,44 @@ h1.pixel-text {
 
 .cooldown-overlay {
     position: absolute;
-    top: 0;
+    bottom: 0;
     left: 0;
     width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.75);
+    height: 0%;
+    background: rgba(0, 0, 0, 0.78);
     z-index: 10;
-    display: flex;
+    display: none;
     justify-content: center;
     align-items: center;
     color: #ff3b30;
     font-family: var(--font-pixel);
     font-size: 9px;
     font-weight: bold;
-    opacity: 0;
     pointer-events: none;
-    transition: opacity 0.15s ease;
+    transition: height 0.1s linear;
+    overflow: hidden;
 }
 
-.cooldown-overlay.active {
-    opacity: 1;
-    pointer-events: auto;
+/* Debuff Göstergesi */
+.debuff-indicators {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    padding: 2px 0;
+    min-height: 18px;
 }
+
+.debuff-icon {
+    font-size: 8px;
+    font-family: var(--font-pixel);
+    padding: 2px 5px;
+    border-radius: 3px;
+    border: 1px solid;
+}
+
+.burn-icon   { color: #ff6600; border-color: #ff6600; background: rgba(255,102,0,0.15); }
+.poison-icon { color: #a020a0; border-color: #a020a0; background: rgba(160,32,160,0.15); }
+.slow-icon   { color: #4da6ff; border-color: #4da6ff; background: rgba(77,166,255,0.15); }
 
 /* Bölüm 3: Envanter (8x2 Grid) */
 .section-inventory {
@@ -953,6 +969,21 @@ h1.pixel-text {
     grid-template-columns: repeat(8, 1fr);
     gap: 6px;
     width: 100%;
+}
+
+.inv-count-badge {
+    position: absolute;
+    bottom: 2px;
+    right: 3px;
+    font-family: var(--font-pixel);
+    font-size: 7px;
+    color: #fff;
+    background: rgba(0,0,0,0.75);
+    padding: 1px 3px;
+    border-radius: 2px;
+    pointer-events: none;
+    line-height: 1;
+    z-index: 5;
 }
 
 .inv-slot {

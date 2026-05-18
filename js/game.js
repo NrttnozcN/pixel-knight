@@ -265,7 +265,7 @@ const GameEngine = {
         const container = document.getElementById('upgrade-options-container');
         container.innerHTML = ''; // Eski seçenekleri sil
         
-        // 5 farklı geliştirmeden 3 tane benzersiz rastgele seçim kartı üret
+        // 14 farklı geliştirmeden 3 tane benzersiz rastgele seçim kartı üret
         const upgrades = [
             {
                 id: 'atk',
@@ -278,37 +278,112 @@ const GameEngine = {
             {
                 id: 'def',
                 title: 'ÇELİK DERİ',
-                desc: 'Defansı kalıcı olarak +2 artırır. Gelen hasarları engelle.',
+                desc: 'Defansı kalıcı olarak +3 artırır. Gelen hasarları engelle.',
                 icon: 'fa-shield-halved',
                 rarity: 'rare',
-                action: () => { this.player.stats.def += 2; }
+                action: () => { this.player.stats.def += 3; }
             },
             {
                 id: 'hp',
                 title: 'DEV YÜREĞİ',
-                desc: 'Maksimum canı +20 artırır ve canınızı tamamen doldurur.',
+                desc: 'Maksimum canı +25 artırır ve canınızı tamamen doldurur.',
                 icon: 'fa-heart-pulse',
                 rarity: 'legendary',
-                action: () => { 
-                    this.player.maxHp += 20; 
-                    this.player.hp = this.player.maxHp; 
+                action: () => {
+                    this.player.stats.maxHp += 25;
+                    this.player.hp = this.player.getMaxHp();
                 }
             },
             {
                 id: 'spd',
                 title: 'RÜZGAR ADIMI',
-                desc: 'Temel hareket hızını +15% artırır. Çok daha kıvrak ol.',
+                desc: 'Temel hareket hızını +0.4 artırır. Çok daha kıvrak ol.',
                 icon: 'fa-wind',
                 rarity: 'epic',
-                action: () => { this.player.stats.spd += 0.35; }
+                action: () => { this.player.stats.spd += 0.4; }
             },
             {
                 id: 'crit',
                 title: 'TAVŞAN AYAĞI',
-                desc: 'Kritik vuruş şansını +6% artırarak 2 kat hasar vurma şansını artır.',
+                desc: 'Kritik vuruş şansını +7% artırarak 2 kat hasar vurma şansını artır.',
                 icon: 'fa-bolt',
                 rarity: 'legendary',
-                action: () => { this.player.stats.crit += 6; }
+                action: () => { this.player.stats.crit += 7; }
+            },
+            {
+                id: 'lifesteal',
+                title: 'VAMPİR DOKUNUŞU',
+                desc: 'Her öldürmede +3 HP kazan. Kan emen saldırı ustası ol.',
+                icon: 'fa-droplet',
+                rarity: 'legendary',
+                action: () => { this.player.hasLifesteal = true; }
+            },
+            {
+                id: 'atkspd',
+                title: 'EL ÇABUKLUĞU',
+                desc: 'Saldırı cooldown\'unu -5 kare azaltır. Çok daha hızlı sal.',
+                icon: 'fa-hand-fist',
+                rarity: 'rare',
+                action: () => { this.player.attackCooldown = Math.max(8, this.player.attackCooldown - 5); }
+            },
+            {
+                id: 'balanced',
+                title: 'DENGELİ GÜÇ',
+                desc: '+2 Hasar, +2 Defans, +10 Maksimum Can. Her şeyi dengeli artır.',
+                icon: 'fa-scale-balanced',
+                rarity: 'rare',
+                action: () => { this.player.stats.atk += 2; this.player.stats.def += 2; this.player.stats.maxHp += 10; }
+            },
+            {
+                id: 'ironheart',
+                title: 'DEMİR YÜREK',
+                desc: 'Maksimum canı +40 artırır ama hız -0.1 düşer. Ham dayanıklılık.',
+                icon: 'fa-heart',
+                rarity: 'epic',
+                action: () => { this.player.stats.maxHp += 40; this.player.stats.spd = Math.max(1, this.player.stats.spd - 0.1); }
+            },
+            {
+                id: 'lethal',
+                title: 'ÖLÜMCÜL DARBE',
+                desc: '+5 Hasar ve +5% Kritik şansı. Düşmanları tek vuruşta devir.',
+                icon: 'fa-skull',
+                rarity: 'legendary',
+                action: () => { this.player.stats.atk += 5; this.player.stats.crit += 5; }
+            },
+            {
+                id: 'berserker',
+                title: 'BERK ÇİLGİNLIK',
+                desc: '+6 Hasar, ama Max Can -10. Saldırı odaklı berserker ol.',
+                icon: 'fa-face-angry',
+                rarity: 'epic',
+                action: () => { this.player.stats.atk += 6; this.player.stats.maxHp = Math.max(30, this.player.stats.maxHp - 10); }
+            },
+            {
+                id: 'turtle',
+                title: 'KAPLUMBAĞA ZIRHI',
+                desc: '+5 Defans ve +0.2 Hız kaybı. Yavaş ama kırılmaz ol.',
+                icon: 'fa-shield',
+                rarity: 'rare',
+                action: () => { this.player.stats.def += 5; this.player.stats.spd = Math.max(1, this.player.stats.spd - 0.2); }
+            },
+            {
+                id: 'fullheal',
+                title: 'KUTSAL İYİLEŞME',
+                desc: 'Canını tamamen doldurur ve tüm debufları temizler.',
+                icon: 'fa-star-of-life',
+                rarity: 'legendary',
+                action: () => {
+                    this.player.hp = this.player.getMaxHp();
+                    this.player.burnTimer = 0; this.player.poisonTimer = 0; this.player.slowTimer = 0;
+                }
+            },
+            {
+                id: 'dashmaster',
+                title: 'GÖLGE ADIMI',
+                desc: 'Dash cooldown\'unu 45→20 kareye düşürür. Anlık kaçış ustası.',
+                icon: 'fa-person-running',
+                rarity: 'epic',
+                action: () => { this.player.dashCooldown = 20; }
             }
         ];
 
@@ -386,8 +461,118 @@ const GameEngine = {
         this.drawEquipmentSlot('gloves', this.player.equipment.gloves);
         this.drawEquipmentSlot('boots', this.player.equipment.boots);
 
-        // 5. Envanter Grid Çizimi
+        // 4b. Set Bonus Kontrolü
+        this._checkSetBonus();
+
+        // 5. Yetenek Cooldown Göstergesi (Q ve R butonları üzerinde)
+        const cooldownQ = document.getElementById('cooldown-q');
+        const cooldownR = document.getElementById('cooldown-r');
+        if (cooldownQ) {
+            const qRatio = this.player.qCooldown / this.player.qMaxCooldown;
+            if (this.player.qCooldown > 0) {
+                cooldownQ.style.height = `${qRatio * 100}%`;
+                const qSecs = Math.ceil(this.player.qCooldown / 60);
+                cooldownQ.textContent = `${qSecs}s`;
+                cooldownQ.style.display = 'flex';
+            } else {
+                cooldownQ.style.height = '0%';
+                cooldownQ.textContent = '';
+                cooldownQ.style.display = 'none';
+            }
+        }
+        if (cooldownR) {
+            const rRatio = this.player.wCooldown / this.player.wMaxCooldown;
+            if (this.player.wCooldown > 0) {
+                cooldownR.style.height = `${rRatio * 100}%`;
+                const rSecs = Math.ceil(this.player.wCooldown / 60);
+                cooldownR.textContent = `${rSecs}s`;
+                cooldownR.style.display = 'flex';
+            } else {
+                cooldownR.style.height = '0%';
+                cooldownR.textContent = '';
+                cooldownR.style.display = 'none';
+            }
+        }
+
+        // 6. Debuff Durum Göstergesi (HUD'da simge ile)
+        this._updateDebuffHUD();
+
+        // 7. Envanter Grid Çizimi
         this.drawInventory();
+    },
+
+    _checkSetBonus() {
+        if (!this.player) return;
+        const eq = this.player.equipment;
+
+        // Tüm kuşanılmış ekipmanların nadirliklerini say
+        const rarities = Object.values(eq).filter(Boolean).map(i => i.rarity);
+        const legendaryCount = rarities.filter(r => r === 'legendary').length;
+        const rareCount = rarities.filter(r => r === 'rare').length;
+
+        // Set bonus: daha önce uygulananları tekrar uygulama
+        if (!this.player._setBonusApplied) this.player._setBonusApplied = {};
+
+        // Full Legendary Set (6+ efsanevi) → Titan Seti
+        if (legendaryCount >= 6 && !this.player._setBonusApplied['titan']) {
+            this.player._setBonusApplied['titan'] = true;
+            this.player.stats.atk += 10;
+            this.player.stats.def += 6;
+            this.player.stats.crit += 8;
+            this.addLog("TİTAN SETİ TAMAMLANDI! +10 Hasar, +6 Def, +8% Kritik! EFSANE BONUS!", "level");
+            if (window.SoundEngine) SoundEngine.playLevelUp();
+        }
+
+        // Full Rare Set (6+ nadir) → Şövalye Seti
+        if (rareCount >= 6 && !this.player._setBonusApplied['knight']) {
+            this.player._setBonusApplied['knight'] = true;
+            this.player.stats.atk += 5;
+            this.player.stats.def += 4;
+            this.player.stats.maxHp += 30;
+            this.addLog("ŞÖVALYE SETİ TAMAMLANDI! +5 Hasar, +4 Def, +30 Can! Set Bonusu Aktif!", "level");
+        }
+    },
+
+    _updateDebuffHUD() {
+        if (!this.player) return;
+        // Mevcut debuff göstergesi HTML elemanı varsa güncelle (yoksa yoksay)
+        const debuffEl = document.getElementById('debuff-indicators');
+        if (!debuffEl) return;
+        let html = '';
+        if (this.player.burnTimer > 0) {
+            const s = Math.ceil(this.player.burnTimer / 60);
+            html += `<span class="debuff-icon burn-icon" title="Yanma ${s}s">🔥${s}s</span>`;
+        }
+        if (this.player.poisonTimer > 0) {
+            const s = Math.ceil(this.player.poisonTimer / 60);
+            html += `<span class="debuff-icon poison-icon" title="Zehir ${s}s">☠${s}s</span>`;
+        }
+        if (this.player.slowTimer > 0) {
+            const s = Math.ceil(this.player.slowTimer / 60);
+            html += `<span class="debuff-icon slow-icon" title="Yavaşlama ${s}s">🐢${s}s</span>`;
+        }
+        debuffEl.innerHTML = html;
+    },
+
+    // Tüm item türleri için doğru sprite anahtarını döner
+    _getItemSpriteKey(item) {
+        const type = item.type;
+        const rar  = item.rarity;  // enchant sonrası değişmiş olabilir
+        if (type.startsWith('sword_'))    return `item_sword_${rar}`;
+        if (type.startsWith('bow_'))      return `item_bow_${rar}`;
+        if (type.startsWith('armor_'))    return `item_armor_${rar}`;
+        if (type.startsWith('helmet_'))   return `item_helmet_${rar}`;
+        if (type.startsWith('necklace_')) return `item_necklace_${rar}`;
+        if (type.startsWith('earrings_')) return `item_earrings_${rar}`;
+        if (type.startsWith('ring_'))     return `item_ring_${rar}`;
+        if (type.startsWith('gloves_'))   return `item_gloves_${rar}`;
+        if (type.startsWith('boots_'))    return `item_boots_${rar}`;
+        // Yeni tipler → mevcut sprite'lara eşle
+        if (type.startsWith('dagger_'))   return `item_sword_${rar}`;
+        if (type.startsWith('staff_'))    return `item_sword_${rar}`;
+        if (type.startsWith('shield_'))   return `item_armor_${rar}`;
+        if (type === 'potion_big')        return 'item_potion_red';
+        return `item_${type}`; // gold, potion_red, potion_blue
     },
 
     // Silah / Zırh Kuşanma pencerelerini doldurur
@@ -408,7 +593,7 @@ const GameEngine = {
             const ctx = canvas.getContext('2d');
             ctx.imageSmoothingEnabled = false;
 
-            let spriteKey = `item_${item.type}`;
+            const spriteKey = this._getItemSpriteKey(item);
 
             SpriteEngine.draw(ctx, spriteKey, 0, 0, 36, 36);
 
@@ -446,7 +631,7 @@ const GameEngine = {
         const container = document.getElementById('inventory-container');
         container.innerHTML = ''; // Temizle
 
-        const invCount = this.player.inventory.length;
+        const invCount = this.player.inventory.length; // Her yığın 1 slot sayılır
         document.getElementById('inv-count').innerText = `${invCount}/${this.player.maxInventorySlots}`;
 
         // 16 yuva oluştur
@@ -465,12 +650,20 @@ const GameEngine = {
                 const ctx = canvas.getContext('2d');
                 ctx.imageSmoothingEnabled = false;
 
-                let spriteKey = `item_${item.type}`;
+                const spriteKey = this._getItemSpriteKey(item);
 
                 SpriteEngine.draw(ctx, spriteKey, 0, 0, 32, 32);
-                
+
                 canvas.className = 'pixel-item';
                 slot.appendChild(canvas);
+
+                // Yığın sayısı rozeti (count > 1 ise sağ alt köşe)
+                if ((item.count || 1) > 1) {
+                    const badge = document.createElement('span');
+                    badge.className = 'inv-count-badge';
+                    badge.textContent = item.count;
+                    slot.appendChild(badge);
+                }
 
                 // Eşya açıklaması hover tooltip (isInventory = true)
                 canvas.addEventListener('mouseenter', () => this.showTooltip(item, true));
@@ -706,7 +899,20 @@ const GameEngine = {
         // Boss Can Barı HUD güncellemesi
         if (this.boss) {
             const hpPercent = Math.max(0, (this.boss.hp / this.boss.maxHp) * 100);
-            document.getElementById('boss-hp-bar').style.width = `${hpPercent}%`;
+            const barEl = document.getElementById('boss-hp-bar');
+            barEl.style.width = `${hpPercent}%`;
+
+            // Faz rengi: 1=kırmızı, 2=turuncu, 3=mor, 4=pembe alev
+            const phaseColors = ['#ff3b30', '#ff8c00', '#b026ff', '#ff2d78'];
+            barEl.style.background = phaseColors[(this.boss.phase || 1) - 1];
+
+            // Boss adı faz göstergesiyle güncelle
+            const nameEl = document.getElementById('boss-name');
+            if (nameEl) {
+                const phaseStr = this.boss.phase > 1 ? ` — FAZ ${this.boss.phase}` : '';
+                nameEl.textContent = `${this.boss.name}${phaseStr}`;
+            }
+
             if (this.boss.hp <= 0) {
                 this.boss = null;
                 document.getElementById('boss-hud').classList.remove('active');

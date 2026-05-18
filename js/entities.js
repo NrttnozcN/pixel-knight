@@ -110,8 +110,13 @@ class Item {
         this.name = 'Bilinmeyen Eşya';
         this.stats = equipmentStats; // { atk: 5 } vb.
         this.description = '';
+        this.enchantment = null; // Efsun bilgisi (30% şans)
 
         this.initItemProperties();
+        // Ekipman parçasıysa %30 efsun şansı uygula
+        if (this.type !== 'gold' && !this.type.startsWith('potion_')) {
+            this.applyEnchantment();
+        }
     }
 
     initItemProperties() {
@@ -280,6 +285,97 @@ class Item {
             this.stats = this.stats || { spd: 0.7, crit: 4 };
             this.description = `Taktığında havada süzülüyormuş gibi hissettiren rüzgar botları! (+${this.stats.spd} Hız, +${this.stats.crit}% Kritik)`;
         }
+        // HANÇERLER (Dagger) — Yüksek kritik, düşük hasar
+        else if (this.type === 'dagger_common') {
+            this.name = 'Demir Hançer';
+            this.rarity = 'common';
+            this.stats = this.stats || { atk: 2, crit: 4 };
+            this.description = `Hızlı ve hafif kısa bıçak. (+${this.stats.atk} Hasar, +${this.stats.crit}% Kritik)`;
+        } else if (this.type === 'dagger_rare') {
+            this.name = 'Zümrüt Sessiz Bıçak';
+            this.rarity = 'rare';
+            this.stats = this.stats || { atk: 5, crit: 8, spd: 0.15 };
+            this.description = `Gölgelerde gizlenen suikastçı bıçağı. (+${this.stats.atk} Hasar, +${this.stats.crit}% Kritik, +${this.stats.spd} Hız)`;
+        } else if (this.type === 'dagger_legendary') {
+            this.name = 'Efsanevi Ruh Bıçağı';
+            this.rarity = 'legendary';
+            this.stats = this.stats || { atk: 9, crit: 14, spd: 0.3 };
+            this.description = `Ruhu söküp alan kadim suikastçı hançeri! (+${this.stats.atk} Hasar, +${this.stats.crit}% Kritik, +${this.stats.spd} Hız)`;
+        }
+        // ASALAR (Staff) — Can ve defans odaklı
+        else if (this.type === 'staff_common') {
+            this.name = 'Tahta Asa';
+            this.rarity = 'common';
+            this.stats = this.stats || { atk: 4, hp: 10 };
+            this.description = `Büyü enerjisi yayan tahta asa. (+${this.stats.atk} Hasar, +${this.stats.hp} Can)`;
+        } else if (this.type === 'staff_rare') {
+            this.name = 'Kristal Asa';
+            this.rarity = 'rare';
+            this.stats = this.stats || { atk: 9, hp: 25, def: 2 };
+            this.description = `Mavi kristal büyü asası. (+${this.stats.atk} Hasar, +${this.stats.hp} Can, +${this.stats.def} Defans)`;
+        } else if (this.type === 'staff_legendary') {
+            this.name = 'Efsanevi Ejderha Asası';
+            this.rarity = 'legendary';
+            this.stats = this.stats || { atk: 16, hp: 50, def: 4, crit: 5 };
+            this.description = `Ejder gözü taşıyan efsanevi sihir asası! (+${this.stats.atk} Hasar, +${this.stats.hp} Can, +${this.stats.def} Def, +${this.stats.crit}% Kritik)`;
+        }
+        // KALKANLAR (Shield) — Tam defans odaklı
+        else if (this.type === 'shield_common') {
+            this.name = 'Tahta Kalkan';
+            this.rarity = 'common';
+            this.stats = this.stats || { def: 4, hp: 8 };
+            this.description = `Basit tahta kalkan. (+${this.stats.def} Defans, +${this.stats.hp} Can)`;
+        } else if (this.type === 'shield_rare') {
+            this.name = 'Demir Kale Kalkanı';
+            this.rarity = 'rare';
+            this.stats = this.stats || { def: 9, hp: 20 };
+            this.description = `Ağır demir savunma kalkanı. (+${this.stats.def} Defans, +${this.stats.hp} Can)`;
+        } else if (this.type === 'shield_legendary') {
+            this.name = 'Efsanevi Titan Kalkanı';
+            this.rarity = 'legendary';
+            this.stats = this.stats || { def: 16, hp: 40, atk: 2 };
+            this.description = `Devlerin zırhından dökülen ezeli kalkan! (+${this.stats.def} Defans, +${this.stats.hp} Can, +${this.stats.atk} Hasar)`;
+        }
+        // İKSİR - BÜYÜK SAĞLIK
+        else if (this.type === 'potion_big') {
+            this.name = 'Büyük Sağlık İksiri';
+            this.rarity = 'legendary';
+            this.description = 'Sağlığını +70 anında yeniler!';
+        }
+    }
+
+    applyEnchantment() {
+        if (Math.random() > 0.30) return; // %30 şans
+
+        const enchants = [
+            { name: 'Kan Emici',   stat: 'lifesteal', val: 1,  desc: '+Kan Emme' },
+            { name: 'Keskin',      stat: 'atk',       val: 2,  desc: '+2 Hasar' },
+            { name: 'Sağlam',      stat: 'def',       val: 2,  desc: '+2 Defans' },
+            { name: 'Hız Rünü',    stat: 'spd',       val: 0.2, desc: '+0.2 Hız' },
+            { name: 'Canlılık',    stat: 'hp',        val: 15, desc: '+15 Can' },
+            { name: 'Kâhin',       stat: 'crit',      val: 4,  desc: '+4% Kritik' },
+            { name: 'Demir Yumruk',stat: 'atk',       val: 3,  desc: '+3 Hasar' },
+            { name: 'Aslan Yüreği',stat: 'hp',        val: 25, desc: '+25 Can' },
+        ];
+
+        const picked = enchants[Math.floor(Math.random() * enchants.length)];
+        this.enchantment = picked;
+
+        // Efsun adını eşya adına ekle
+        this.name = `[${picked.name}] ${this.name}`;
+
+        // Statı uygula
+        if (!this.stats) this.stats = {};
+        if (picked.stat !== 'lifesteal') {
+            this.stats[picked.stat] = (this.stats[picked.stat] || 0) + picked.val;
+        }
+
+        // Açıklamayı güncelle
+        this.description += ` ${picked.desc} (Efsunlu!)`;
+
+        // Efsunlu eşyalar nadirlik basamağı atlar (common→rare, rare→legendary)
+        if (this.rarity === 'common') this.rarity = 'rare';
+        else if (this.rarity === 'rare') this.rarity = 'legendary';
     }
 
     update() {
@@ -350,6 +446,11 @@ class Item {
         if (this.type.startsWith('ring_')) spriteKey = `item_ring_${this.rarity}`;
         if (this.type.startsWith('gloves_')) spriteKey = `item_gloves_${this.rarity}`;
         if (this.type.startsWith('boots_')) spriteKey = `item_boots_${this.rarity}`;
+        // Yeni item türleri (sprite yoksa sword/armor sprite'ını yeniden kullan)
+        if (this.type.startsWith('dagger_')) spriteKey = `item_sword_${this.rarity}`;
+        if (this.type.startsWith('staff_')) spriteKey = `item_sword_${this.rarity}`;
+        if (this.type.startsWith('shield_')) spriteKey = `item_armor_${this.rarity}`;
+        if (this.type === 'potion_big') spriteKey = 'item_potion_red';
 
         SpriteEngine.draw(ctx, spriteKey, drawX - this.width/2, drawY - this.height/2, this.width, this.height);
     }
@@ -384,15 +485,15 @@ class Chest {
             else if (roll < 0.65) type = Math.random() < 0.6 ? 'potion_red' : 'potion_blue'; // %25 iksir
             else {
                 // %35 oranında rastgele bir ekipman parçası düşer
-                const gearCategories = ['sword', 'bow', 'armor', 'helmet', 'necklace', 'earrings', 'ring', 'gloves', 'boots'];
+                const gearCategories = ['sword', 'bow', 'armor', 'helmet', 'necklace', 'earrings', 'ring', 'gloves', 'boots', 'dagger', 'staff', 'shield'];
                 const chosenCategory = gearCategories[Math.floor(Math.random() * gearCategories.length)];
-                
+
                 const rarityRoll = Math.random();
                 let rarity = 'common';
-                if (rarityRoll < 0.12) rarity = 'legendary';      // %12 Efsanevi
-                else if (rarityRoll < 0.38) rarity = 'rare';     // %26 Nadir
-                else rarity = 'common';                          // %62 Yaygın
-                
+                if (rarityRoll < 0.12) rarity = 'legendary';
+                else if (rarityRoll < 0.38) rarity = 'rare';
+                else rarity = 'common';
+
                 type = `${chosenCategory}_${rarity}`;
             }
 
@@ -456,15 +557,22 @@ class Enemy {
         this.state = 'idle'; // 'idle', 'patrol', 'chase'
         this.target = null;
         this.facing = 'right';
-        
+
         // Görsel Hasar Alma Efektleri
-        this.hitFlashTimer = 0; // Vurulduğunda kırmızı parlaması için
+        this.hitFlashTimer = 0;
         this.knockbackVx = 0;
         this.knockbackVy = 0;
-        
+
+        // Saldırı cooldown (knockback sırasında da çalışır)
+        this.attackCooldownTimer = 60; // İlk temastan önce 1 sn bekle
+        this.attackCooldownMax = 90;   // 1.5 sn aralarla vurur
+
         // Animasyon karesi
         this.animTimer = 0;
         this.animFrame = 1;
+
+        // Uygulayacağı debuff türü (null, 'burn', 'poison', 'slow')
+        this.debuffType = null;
 
         this.initEnemyStats();
     }
@@ -482,6 +590,7 @@ class Enemy {
             this.atk = Math.floor(5 * floorMultiplier);
             this.xpReward = Math.floor(10 * floorMultiplier);
             this.goldReward = Math.floor((Math.random() * 5 + 2) * floorMultiplier);
+            this.debuffType = 'slow'; // Yeşil balçık → yavaşlatır
         } else if (this.type === 'slime_fire') {
             this.name = 'Lav Balçığı';
             this.hp = Math.floor(25 * floorMultiplier);
@@ -490,6 +599,7 @@ class Enemy {
             this.atk = Math.floor(12 * floorMultiplier);
             this.xpReward = Math.floor(20 * floorMultiplier);
             this.goldReward = Math.floor((Math.random() * 8 + 4) * floorMultiplier);
+            this.debuffType = 'burn'; // Kırmızı balçık → yakar + regen engeller
         } else if (this.type === 'slime_shadow') {
             this.name = 'Karanlık Balçık';
             this.hp = Math.floor(40 * floorMultiplier);
@@ -498,6 +608,7 @@ class Enemy {
             this.atk = Math.floor(18 * floorMultiplier);
             this.xpReward = Math.floor(35 * floorMultiplier);
             this.goldReward = Math.floor((Math.random() * 12 + 6) * floorMultiplier);
+            this.debuffType = 'poison'; // Mor balçık → zehirler + regen engeller
         } else if (this.type === 'skeleton') {
             this.name = 'İskelet Savaşçı';
             this.hp = Math.floor(30 * floorMultiplier);
@@ -512,7 +623,23 @@ class Enemy {
     }
 
     update(player, game) {
-        // 1. Geri Savrulma Fiziği (Knockback)
+        // Saldırı cooldown'ı her zaman say (knockback sırasında da!)
+        if (this.attackCooldownTimer > 0) this.attackCooldownTimer--;
+
+        // Oyuncuya olan mesafeyi hesapla
+        const dx = player.x - this.x;
+        const dy = player.y - this.y;
+        const distance = Math.hypot(dx, dy);
+
+        // Melee saldırı: knockback/hareket durumundan bağımsız kontrol et
+        if (distance < 32 && player.hp > 0 && this.attackCooldownTimer === 0) {
+            player.takeDamage(this.atk, game);
+            if (this.debuffType && player.applyDebuff) player.applyDebuff(this.debuffType, game);
+            this.attackCooldownTimer = this.attackCooldownMax;
+            if (window.SoundEngine) SoundEngine.playEnemyAttack();
+        }
+
+        // 1. Geri Savrulma Fiziği (Knockback) — hareketi durdurur ama saldırıyı engellemez
         if (Math.abs(this.knockbackVx) > 0.1 || Math.abs(this.knockbackVy) > 0.1) {
             const nextX = this.x + this.knockbackVx;
             const nextY = this.y + this.knockbackVy;
@@ -520,9 +647,10 @@ class Enemy {
             if (World.isWalkable(nextX, this.y)) this.x = nextX;
             if (World.isWalkable(this.x, nextY)) this.y = nextY;
 
-            this.knockbackVx *= 0.85; // Kuvveti yavaşça azalt
+            this.knockbackVx *= 0.85;
             this.knockbackVy *= 0.85;
-            return; // Geri savrulurken normal hareket yapamaz
+            if (this.hitFlashTimer > 0) this.hitFlashTimer--;
+            return;
         }
 
         // Hasar parlaması süresini azalt
@@ -536,14 +664,10 @@ class Enemy {
         }
 
         // 2. YAPAY ZEKA VE HAREKET
-        const dx = player.x - this.x;
-        const dy = player.y - this.y;
-        const distance = Math.hypot(dx, dy);
-
         // Algılama mesafesi: 180 piksel
         if (distance < 180 && player.hp > 0) {
             this.state = 'chase';
-            
+
             // Oyuncuya doğru yürü
             const angle = Math.atan2(dy, dx);
             const vx = Math.cos(angle) * this.speed;
@@ -560,11 +684,6 @@ class Enemy {
             }
             if (World.isWalkable(this.x, nextY)) {
                 this.y = nextY;
-            }
-
-            // Oyuncuyla temas ettiğinde hasar ver (Melee temas saldırısı)
-            if (distance < 24) {
-                player.takeDamage(this.atk, game);
             }
         } else {
             // Devriye Gezme (Patrol) veya Bekleme
@@ -635,6 +754,22 @@ class Enemy {
         game.addLog(`${this.name} yenildi! +${this.xpReward} TP.`, "enemy-hit");
         game.killsCount++;
 
+        // Silah uzmanlığı için öldürme sayacı
+        if (game.player && game.player.specialization === null) {
+            const weapon = game.player.equipment && game.player.equipment.weapon;
+            if (weapon && weapon.type && weapon.type.includes('bow')) {
+                game.player.bowKills = (game.player.bowKills || 0) + 1;
+            } else {
+                game.player.swordKills = (game.player.swordKills || 0) + 1;
+            }
+        }
+
+        // Vampir Dokunuşu: öldürmede +3 HP
+        if (game.player.hasLifesteal) {
+            game.player.hp = Math.min(game.player.getMaxHp(), game.player.hp + 3);
+            game.textParticles.push(new TextParticle(game.player.x, game.player.y - 18, '+3 CAN', '#ff4488', "8px"));
+        }
+
         // Oyuncuya TP (XP) ver
         game.player.gainXp(this.xpReward, game);
 
@@ -644,15 +779,18 @@ class Enemy {
             game.items.push(new Item(this.x, this.y, 'gold', goldVal));
         }
 
-        // Rastgele can potu şansı (%15) veya yeni 8 slot ekipmandan birini düşürme şansı (%7)
+        // Düşman ölüm ganimetleri
         const roll = Math.random();
-        if (roll < 0.15) {
+        if (roll < 0.12) {
             game.items.push(new Item(this.x, this.y, 'potion_red'));
-        } else if (roll < 0.22) {
-            // Şansa göre tüm ekipman slotlarından (Yay, Kılıç, Kask, Kolye vb.) Common veya Rare kalitede eşya düşür
-            const gearCategories = ['sword', 'bow', 'armor', 'helmet', 'necklace', 'earrings', 'ring', 'gloves', 'boots'];
+        } else if (roll < 0.16) {
+            game.items.push(new Item(this.x, this.y, 'potion_blue'));
+        } else if (roll < 0.28) {
+            // Tüm ekipman kategorilerinden ganimet düşür (yeni tipler dahil)
+            const gearCategories = ['sword', 'bow', 'armor', 'helmet', 'necklace', 'earrings', 'ring', 'gloves', 'boots', 'dagger', 'staff', 'shield'];
             const chosenCategory = gearCategories[Math.floor(Math.random() * gearCategories.length)];
-            const rarity = Math.random() < 0.85 ? 'common' : 'rare';
+            const rarityRoll = Math.random();
+            const rarity = rarityRoll < 0.05 ? 'legendary' : rarityRoll < 0.30 ? 'rare' : 'common';
             game.items.push(new Item(this.x, this.y, `${chosenCategory}_${rarity}`));
         }
 
@@ -757,6 +895,25 @@ class Player {
         // Hız potu güçlendirmesi
         this.speedBuffTimer = 0;
 
+        // Debuff durumları (Düşman renklerine göre)
+        this.burnTimer = 0;       // Yanma: 300 kare (~5sn), -3HP/60kare, regen engeller
+        this.poisonTimer = 0;     // Zehir: 480 kare (~8sn), -2HP/60kare, regen engeller
+        this.slowTimer = 0;       // Yavaşlama: 180 kare (~3sn), hız x0.6
+        this.burnTickTimer = 0;
+        this.poisonTickTimer = 0;
+
+        // HP yenileme sistemi (5sn hasar almadan → yavaş iyileşme)
+        this.regenTimer = 0;       // Hasar almadan geçen kare sayısı
+        this.regenTickTimer = 0;   // Regen tick arası sayaç
+
+        // Lv5 Silah uzmanlığı
+        this.swordKills = 0;
+        this.bowKills = 0;
+        this.specialization = null; // null, 'sword', 'bow'
+
+        // Lifesteal (Vampir Dokunuşu upgrade buff)
+        this.hasLifesteal = false;
+
         // Yetenek Bekleme Süreleri (Skills & Cooldowns)
         this.qCooldown = 0;
         this.qMaxCooldown = 720; // 12 saniye (60fps'te 720 kare)
@@ -843,7 +1000,10 @@ class Player {
         }
         let baseSpd = this.stats.spd + bonus;
         if (this.speedBuffTimer > 0) {
-            baseSpd *= 1.35; // Hız potu %35 ekstra hız verir
+            baseSpd *= 1.35; // Hız potu %35 ekstra hız
+        }
+        if (this.slowTimer > 0) {
+            baseSpd *= 0.6; // Yavaşlatma debuff %40 hız azaltır
         }
         return baseSpd;
     }
@@ -858,6 +1018,58 @@ class Player {
         // Yetenek bekleme sürelerini azalt
         if (this.qCooldown > 0) this.qCooldown--;
         if (this.wCooldown > 0) this.wCooldown--;
+
+        // --- DEBUFF SAYAÇLARI ---
+        if (this.burnTimer > 0) {
+            this.burnTimer--;
+            this.burnTickTimer++;
+            if (this.burnTickTimer >= 60) { // Her 1sn yanma hasarı
+                this.burnTickTimer = 0;
+                const burnDmg = 3;
+                this.hp = Math.max(1, this.hp - burnDmg);
+                game.textParticles.push(new TextParticle(this.x, this.y - 20, `-${burnDmg} YANIK`, '#ff6600', "8px"));
+                game.updateUI();
+                if (window.SoundEngine && SoundEngine.playBurn) SoundEngine.playBurn();
+            }
+        } else {
+            this.burnTickTimer = 0;
+        }
+
+        if (this.poisonTimer > 0) {
+            this.poisonTimer--;
+            this.poisonTickTimer++;
+            if (this.poisonTickTimer >= 60) { // Her 1sn zehir hasarı
+                this.poisonTickTimer = 0;
+                const poisonDmg = 2;
+                this.hp = Math.max(1, this.hp - poisonDmg);
+                game.textParticles.push(new TextParticle(this.x, this.y - 20, `-${poisonDmg} ZEHİR`, '#a020a0', "8px"));
+                game.updateUI();
+                if (window.SoundEngine && SoundEngine.playPoison) SoundEngine.playPoison();
+            }
+        } else {
+            this.poisonTickTimer = 0;
+        }
+
+        if (this.slowTimer > 0) {
+            this.slowTimer--;
+        }
+
+        // --- HP YENILEME (5sn hasar almadan → her 1.5sn +1 HP) ---
+        const hasDebuff = this.burnTimer > 0 || this.poisonTimer > 0;
+        if (!hasDebuff && this.hp > 0 && this.hp < this.getMaxHp()) {
+            this.regenTimer++;
+            if (this.regenTimer >= 300) { // 5sn hasar almadan
+                this.regenTickTimer++;
+                if (this.regenTickTimer >= 90) { // Her 1.5sn
+                    this.regenTickTimer = 0;
+                    this.hp = Math.min(this.getMaxHp(), this.hp + 1);
+                    game.updateUI();
+                }
+            }
+        } else if (hasDebuff || this.invincibleTimer === 35) {
+            this.regenTimer = 0;
+            this.regenTickTimer = 0;
+        }
         
         // Hızlı hücum yeteneğinin aktiflik durum kontrolü
         if (this.rapidAttackActive) {
@@ -1106,7 +1318,14 @@ class Player {
         const finalDamage = Math.max(1, amount - reduction);
 
         this.hp -= finalDamage;
-        this.invincibleTimer = 35; // 35 kare boyunca dokunulmaz (kırmızı yanıp söner)
+        this.invincibleTimer = 35;
+        this.regenTimer = 0; // Hasar alınca regen sıfırlanır
+        this.regenTickTimer = 0;
+
+        // Lifesteal: %15 hasarın geri dönüşü
+        if (this.hasLifesteal) {
+            // (düşmana vurulduğunda iyileşir, bu player.takeDamage değil)
+        }
 
         // Oyuncu hasar sesi
         SoundEngine.playPlayerHurt();
@@ -1135,6 +1354,24 @@ class Player {
         game.updateUI();
     }
 
+    applyDebuff(type, game) {
+        if (type === 'burn') {
+            if (this.burnTimer === 0) game.addLog("YANIK! Lav Balçığı seni ateşe verdi! 5sn boyunca yanıyorsun.", "death");
+            this.burnTimer = 300; // 5sn
+            this.regenTimer = 0;
+            if (window.SoundEngine && SoundEngine.playBurn) SoundEngine.playBurn();
+        } else if (type === 'poison') {
+            if (this.poisonTimer === 0) game.addLog("ZEHİR! Karanlık Balçık seni zehirledi! 8sn boyunca zehir etkisi.", "death");
+            this.poisonTimer = 480; // 8sn
+            this.regenTimer = 0;
+            if (window.SoundEngine && SoundEngine.playPoison) SoundEngine.playPoison();
+        } else if (type === 'slow') {
+            if (this.slowTimer === 0) game.addLog("YAVAŞLAMA! Jöle Balçık seni yavaşlattı! 3sn boyunca.", "system");
+            this.slowTimer = 180; // 3sn
+            if (window.SoundEngine && SoundEngine.playSlow) SoundEngine.playSlow();
+        }
+    }
+
     die(game) {
         SoundEngine.playDeath();
         game.addLog("Elendin! Zindan seni yuttu.", "death");
@@ -1161,6 +1398,22 @@ class Player {
         
         // 2. İKSİR VEYA EKİPMAN TOPLAMA
         else {
+            // Yığınlanabilir tüketilebilirler (iksirler) → aynı türde olanı bul, sayacı artır
+            const stackableTypes = ['potion_red', 'potion_blue', 'potion_big'];
+            if (stackableTypes.includes(item.type)) {
+                const existing = this.inventory.find(i => i.type === item.type);
+                if (existing) {
+                    existing.count = (existing.count || 1) + 1;
+                    SoundEngine.playCoin();
+                    game.textParticles.push(new TextParticle(
+                        this.x, this.y - 15, item.name, 'var(--rarity-rare)', "8px"
+                    ));
+                    game.addLog(`Bulundu: [${item.name}] ×${existing.count}`, "loot");
+                    game.updateUI();
+                    return;
+                }
+            }
+
             if (this.inventory.length >= this.maxInventorySlots) {
                 // Envanter doluysa yere geri düşür (fırlat)
                 item.x = this.x;
@@ -1173,14 +1426,15 @@ class Player {
                 return;
             }
 
-            // Envantere ekle
+            // Envantere ekle (count:1 başlangıç)
             this.inventory.push({
-                id: Math.random().toString(36).substring(2, 9), // Eşsiz ID
+                id: Math.random().toString(36).substring(2, 9),
                 type: item.type,
                 name: item.name,
                 rarity: item.rarity,
                 stats: item.stats,
-                description: item.description
+                description: item.description,
+                count: 1
             });
 
             // Altın sesi veya hafif çınlama sesi
@@ -1221,11 +1475,27 @@ class Player {
         if (this.xp >= this.nextLevelXp) {
             this.xp -= this.nextLevelXp;
             this.level++;
-            this.nextLevelXp = Math.floor(this.nextLevelXp * 1.5); // XP barajı katlanır
+            this.nextLevelXp = Math.floor(this.nextLevelXp * 1.5);
 
             // Seviye Atlama Fanfarı
             SoundEngine.playLevelUp();
             game.addLog(`SEVİYE ATLADIN! Artık Seviye ${this.level} Şövalyesisin!`, "level");
+
+            // Lv5: Silah Uzmanlığı
+            if (this.level === 5 && this.specialization === null) {
+                if (this.bowKills >= this.swordKills) {
+                    this.specialization = 'bow';
+                    this.stats.crit += 8;          // Yay uzmanı: +8% kritik
+                    this.attackCooldown = Math.max(12, this.attackCooldown - 5); // Hızlı ateş
+                    game.addLog("UZMANLIK: YAY UZMANI! Kritik Şansı +8%, Saldırı Hızı arttı!", "level");
+                } else {
+                    this.specialization = 'sword';
+                    this.stats.atk += 5;           // Kılıç uzmanı: +5 hasar
+                    this.stats.def += 3;            // +3 defans
+                    game.addLog("UZMANLIK: KILIÇ UZMANI! Hasar +5, Defans +3 kalıcı bonus!", "level");
+                }
+                game.textParticles.push(new TextParticle(this.x, this.y - 35, "UZMANLIK!", "var(--neon-gold)", "11px", true));
+            }
 
             // Seviye atlama parçacık şöleni (Altın parçacıklar!)
             for (let p = 0; p < 25; p++) {
@@ -1260,22 +1530,29 @@ class Player {
                 return;
             }
             this.hp = Math.min(this.getMaxHp(), this.hp + 30);
-            SoundEngine.playChestOpen(); // İksir içme sesi yerine
+            SoundEngine.playChestOpen();
             game.addLog("Sağlık iksiri kullanıldı: +30 Sağlık.", "loot");
-            
-            // Yeşil iyileşme sayısı fırlat
+
             game.textParticles.push(new TextParticle(
-                this.x, this.y - 20,
-                `+30 HP`,
-                'var(--neon-green)',
-                "10px",
-                false
+                this.x, this.y - 20, `+30 HP`, 'var(--neon-green)', "10px", false
             ));
 
-            // İksiri envanterden sil
-            this.inventory.splice(itemIndex, 1);
+            if ((item.count || 1) > 1) { item.count--; } else { this.inventory.splice(itemIndex, 1); }
         }
         
+        // 1b. BÜYÜK SAĞLIK İKSİRİ
+        else if (item.type === 'potion_big') {
+            if (this.hp >= this.getMaxHp()) {
+                game.addLog("Canınız zaten tamamen dolu!", "system");
+                return;
+            }
+            this.hp = Math.min(this.getMaxHp(), this.hp + 70);
+            SoundEngine.playChestOpen();
+            game.addLog("Büyük sağlık iksiri kullanıldı: +70 Sağlık!", "loot");
+            game.textParticles.push(new TextParticle(this.x, this.y - 20, `+70 HP`, 'var(--neon-green)', "11px", true));
+            if ((item.count || 1) > 1) { item.count--; } else { this.inventory.splice(itemIndex, 1); }
+        }
+
         // 2. HIZ İKSİRİ KULLANILDI
         else if (item.type === 'potion_blue') {
             this.speedBuffTimer = 600; // 600 kare = 10 saniye (60fps)
@@ -1294,15 +1571,16 @@ class Player {
                 ));
             }
 
-            this.inventory.splice(itemIndex, 1);
+            if ((item.count || 1) > 1) { item.count--; } else { this.inventory.splice(itemIndex, 1); }
         }
-        
+
         // 3. GENEL EKİPMAN KUŞANMA SİSTEMİ (8 Slot)
         else {
             let slot = null;
-            if (item.type.startsWith('sword_') || item.type.startsWith('bow_')) {
+            if (item.type.startsWith('sword_') || item.type.startsWith('bow_') ||
+                item.type.startsWith('dagger_') || item.type.startsWith('staff_')) {
                 slot = 'weapon';
-            } else if (item.type.startsWith('armor_')) {
+            } else if (item.type.startsWith('armor_') || item.type.startsWith('shield_')) {
                 slot = 'armor';
             } else if (item.type.startsWith('helmet_')) {
                 slot = 'helmet';
@@ -1663,106 +1941,145 @@ class Boss {
         const floorMultiplier = 1.0 + (window.GameEngine ? window.GameEngine.floor - 1 : 0) * 0.15;
 
         this.name = "ZİNDAN MUHAFIZI";
-        this.hp = Math.floor(300 * floorMultiplier); // Muazzam ve katlandıkça büyüyen can havuzu
+        // Temel statlar (Faz 1 değerleri) — kattaki zorlukla ölçeklenir
+        this.baseAtk   = Math.floor(20 * floorMultiplier);
+        this.baseSpeed = 0.75;
+        this.baseSlamCooldown = 180; // 3sn
+
+        this.hp    = Math.floor(500 * floorMultiplier); // Daha uzun savaş
         this.maxHp = this.hp;
-        this.atk = Math.floor(22 * floorMultiplier); // Yüksek ve katlandıkça büyüyen hasar
-        this.speed = 0.85;
-        this.xpReward = Math.floor(150 * floorMultiplier);
-        
+        this.atk   = this.baseAtk;
+        this.speed = this.baseSpeed;
+        this.xpReward = Math.floor(200 * floorMultiplier);
+
         this.animTimer = 0;
         this.animFrame = 1;
         this.facing = 'right';
         this.hitFlashTimer = 0;
         this.knockbackVx = 0;
         this.knockbackVy = 0;
-        
-        // Özel saldırı sayaçları
-        this.attackCooldown = 150; // 2.5 saniyede bir özel saldırı
-        this.attackCooldownTimer = 100; // Başlangıçta biraz beklesin
-        
-        // Minyon çağırma limitleri (sadece birer kez tetiklensin)
-        this.spawned60 = false;
-        this.spawned30 = false;
-        
-        // Slam animasyon sayaçları
-        this.slamTimer = 0;
+
+        // Saldırı zamanlayıcıları
+        this.attackCooldown      = this.baseSlamCooldown;
+        this.attackCooldownTimer = 120; // Kısa başlangıç gecikmesi
+
+        // Faz sistemi — her eşikte bir kez tetiklenir
+        this.phase = 1;
+        this.phaseTriggered = { 2: false, 3: false, 4: false };
+
+        // Minyon çağırma (faz 2 ve 3'te)
+        this.spawnedPhase2 = false;
+        this.spawnedPhase3 = false;
+
+        // Slam dalgası
         this.slamActive = false;
         this.slamX = 0;
         this.slamY = 0;
         this.slamRadius = 0;
+
+        // Melee temas cooldown
+        this.meleeCooldownTimer = 0;
+        this.meleeCooldownMax   = 90; // 1.5sn
     }
 
     update(player, game) {
-        // Geri savrulma (Çok minik savrulur Boss olduğu için)
+        // Geri savrulma (Boss çok hafif kayar)
         if (Math.abs(this.knockbackVx) > 0.1 || Math.abs(this.knockbackVy) > 0.1) {
-            const nextX = this.x + this.knockbackVx * 0.15;
-            const nextY = this.y + this.knockbackVy * 0.15;
+            const nextX = this.x + this.knockbackVx * 0.12;
+            const nextY = this.y + this.knockbackVy * 0.12;
             if (World.isWalkable(nextX, this.y)) this.x = nextX;
             if (World.isWalkable(this.x, nextY)) this.y = nextY;
-            this.knockbackVx *= 0.85;
-            this.knockbackVy *= 0.85;
+            this.knockbackVx *= 0.82;
+            this.knockbackVy *= 0.82;
         }
 
         if (this.hitFlashTimer > 0) this.hitFlashTimer--;
         if (this.attackCooldownTimer > 0) this.attackCooldownTimer--;
+        if (this.meleeCooldownTimer > 0) this.meleeCooldownTimer--;
 
-        // Animasyon zamanlayıcısı
+        // Animasyon
         this.animTimer++;
         if (this.animTimer >= 18) {
             this.animFrame = this.animFrame === 1 ? 2 : 1;
             this.animTimer = 0;
         }
 
-        // Oyuncuyla aradaki mesafe
-        const dx = player.x - this.x;
-        const dy = player.y - this.y;
-        const distance = Math.hypot(dx, dy);
+        const hpRatio = this.hp / this.maxHp;
 
-        // Eğer canı %40'ın altına düşerse sinirlenir (Enrage!)
-        if (this.hp < this.maxHp * 0.4 && this.speed < 1.1) {
-            this.speed = 1.3; // Hızlanır!
-            game.addLog("ZİNDAN MUHAFIZI öfkelendi! Gözleri alev alev parlıyor!", "death");
+        // ═══════════════════════════════════════════════
+        // FAZ SİSTEMİ — Kademeli Güçlenme
+        // ═══════════════════════════════════════════════
+
+        // FAZ 2: Can %75 altına düştüğünde (1. güçlenme)
+        if (hpRatio <= 0.75 && !this.phaseTriggered[2]) {
+            this.phaseTriggered[2] = true;
+            this.phase = 2;
+            this.atk   = Math.floor(this.baseAtk * 1.25);
+            this.speed = this.baseSpeed + 0.25;
+            this.attackCooldown = Math.floor(this.baseSlamCooldown * 0.80);
+            game.addLog("⚡ FAZ 2 — Muhafız'ın zırhı kızarmaya başladı! Saldırılar güçlendi!", "death");
             SoundEngine.playBossRoar();
+            game.triggerScreenShake(10);
+            this._spawnPhaseMinions(game, 2);
         }
 
-        // Minyon Çağırma Kontrolleri
-        if (this.hp <= this.maxHp * 0.6 && !this.spawned60) {
-            this.spawned60 = true;
-            this.spawnMinions(game);
-        }
-        if (this.hp <= this.maxHp * 0.3 && !this.spawned30) {
-            this.spawned30 = true;
-            this.spawnMinions(game);
+        // FAZ 3: Can %50 altına düştüğünde (2. güçlenme)
+        if (hpRatio <= 0.50 && !this.phaseTriggered[3]) {
+            this.phaseTriggered[3] = true;
+            this.phase = 3;
+            this.atk   = Math.floor(this.baseAtk * 1.55);
+            this.speed = this.baseSpeed + 0.55;
+            this.attackCooldown = Math.floor(this.baseSlamCooldown * 0.60);
+            game.addLog("💀 FAZ 3 — Muhafız yarı yıkık! Gözleri kan kırmızısı alevlerle yandı!", "death");
+            SoundEngine.playBossRoar();
+            game.triggerScreenShake(16);
+            this._spawnPhaseMinions(game, 3);
         }
 
-        // Şok dalgası/Slam darbe alanı genişletme fiziği
+        // FAZ 4: Can %25 altına düştüğünde (3. güçlenme — son form)
+        if (hpRatio <= 0.25 && !this.phaseTriggered[4]) {
+            this.phaseTriggered[4] = true;
+            this.phase = 4;
+            this.atk   = Math.floor(this.baseAtk * 2.0);
+            this.speed = this.baseSpeed + 0.90;
+            this.attackCooldown = Math.floor(this.baseSlamCooldown * 0.40);
+            game.addLog("🔥 FAZ 4 — SON FORM! Muhafız çılgına döndü! Tüm gücüyle saldırıyor!", "death");
+            SoundEngine.playBossRoar();
+            game.triggerScreenShake(22);
+            this._spawnPhaseMinions(game, 4);
+        }
+
+        // Şok dalgası fiziği
         if (this.slamActive) {
-            this.slamRadius += 6; // Şok dalgası genişler
-            if (this.slamRadius >= 130) { // Maksimum etki alanı
-                this.slamActive = false;
-            }
+            this.slamRadius += 7;
+            if (this.slamRadius >= 150) this.slamActive = false;
 
-            // Şok dalgasının oyuncuya hasar verip vermediğini kontrol et
             const pDist = Math.hypot(player.x - this.slamX, player.y - this.slamY);
-            if (pDist < this.slamRadius && pDist > this.slamRadius - 15) {
+            if (pDist < this.slamRadius && pDist > this.slamRadius - 18) {
                 if (player.invincibleTimer === 0) {
-                    const angle = Math.atan2(player.y - this.y, player.x - this.x);
-                    player.takeDamage(15, game);
-                    player.x += Math.cos(angle) * 15;
-                    player.y += Math.sin(angle) * 15;
+                    const ang = Math.atan2(player.y - this.y, player.x - this.x);
+                    // Slam hasarı faza göre artar
+                    const slamDmg = 10 + (this.phase - 1) * 6;
+                    player.takeDamage(slamDmg, game);
+                    player.x += Math.cos(ang) * 18;
+                    player.y += Math.sin(ang) * 18;
                 }
             }
         }
 
-        // 2. YAPAY ZEKA HAREKETİ VE ÖZEL SALDIRILAR
+        // Oyuncu ile mesafe
+        const dx = player.x - this.x;
+        const dy = player.y - this.y;
+        const distance = Math.hypot(dx, dy);
+
         if (player.hp > 0) {
-            // Saldırı Cooldown bittiyse ve oyuncu yakındaysa Yere Vurma Şok Dalgası (Slam) kullan!
-            if (this.attackCooldownTimer === 0 && distance < 150) {
+            // Slam: yakında ve cooldown bittiyse
+            if (this.attackCooldownTimer === 0 && distance < 160) {
                 this.performSlam(player, game);
                 return;
             }
 
-            // Normal kovalama hareketi
+            // Kovalama hareketi
             const angle = Math.atan2(dy, dx);
             const vx = Math.cos(angle) * this.speed;
             const vy = Math.sin(angle) * this.speed;
@@ -1771,42 +2088,95 @@ class Boss {
 
             const nextX = this.x + vx;
             const nextY = this.y + vy;
-
             if (World.isWalkable(nextX, this.y)) this.x = nextX;
             if (World.isWalkable(this.x, nextY)) this.y = nextY;
 
-            // Oyuncuyla doğrudan temas ederse büyük hasar verir
-            if (distance < 36) {
+            // Doğrudan temas hasarı (cooldown'lu)
+            if (distance < 40 && this.meleeCooldownTimer === 0) {
                 player.takeDamage(this.atk, game);
+                this.meleeCooldownTimer = this.meleeCooldownMax;
             }
         }
     }
 
-    // Özel Saldırı: Yere Vurma Şok Dalgası (Slam Explosion)
+    // Faz geçişinde minyon çağır
+    _spawnPhaseMinions(game, phase) {
+        const counts = { 2: 2, 3: 3, 4: 4 };
+        const count = counts[phase] || 2;
+        game.addLog(`ZİNDAN MUHAFIZI: 'Hizmetçilerim gelsin!' Faz ${phase} minyonları çağrılıyor!`, "death");
+
+        for (let i = 0; i < count; i++) {
+            const angle = (i / count) * Math.PI * 2;
+            const dist  = 110 + Math.random() * 40;
+            const sx = this.x + Math.cos(angle) * dist;
+            const sy = this.y + Math.sin(angle) * dist;
+            if (!World.isWalkable(sx, sy)) continue;
+
+            const types = ['slime_fire', 'slime_shadow', 'skeleton'];
+            const minyonType = types[Math.floor(Math.random() * types.length)];
+            const minyon = new Enemy(sx, sy, minyonType);
+            minyon.name = `Faz${phase} Minyonu`;
+            // Faza göre güçlü minyon
+            const boost = 1.0 + (phase - 1) * 0.3;
+            minyon.maxHp = Math.floor(minyon.maxHp * boost);
+            minyon.hp    = minyon.maxHp;
+            minyon.atk   = Math.floor(minyon.atk * boost);
+            minyon.speed = minyon.speed * boost;
+            game.enemies.push(minyon);
+
+            for (let p = 0; p < 8; p++) {
+                game.particles.push(new Particle(
+                    sx, sy, '#b026ff',
+                    (Math.random() - 0.5) * 5, (Math.random() - 0.5) * 5,
+                    Math.random() * 3 + 2, 20
+                ));
+            }
+        }
+    }
+
+    // Özel Saldırı: Yere Vurma Şok Dalgası (Faz'a göre güçlenir)
     performSlam(player, game) {
         this.attackCooldownTimer = this.attackCooldown;
         this.slamActive = true;
         this.slamRadius = 10;
         this.slamX = this.x;
         this.slamY = this.y;
-        
-        // Ekran sarsıntısı ve sesler
-        game.triggerScreenShake(20);
-        SoundEngine.playBossSlap();
-        game.addLog("ZİNDAN MUHAFIZI yere vurdu! Alev dalgaları yayılıyor!", "death");
 
-        // Yere vurma partikülleri
-        for (let p = 0; p < 24; p++) {
-            const angle = (p / 24) * Math.PI * 2;
-            const spd = 3 + Math.random() * 3;
+        // Faz'a göre daha güçlü sarsıntı ve mesaj
+        const shakeAmt = 16 + (this.phase - 1) * 6;
+        game.triggerScreenShake(shakeAmt);
+        SoundEngine.playBossSlap();
+
+        const phaseMsg = this.phase >= 3 ? "🔥 ULTRA SLAM!" : "ZİNDAN MUHAFIZI yere vurdu!";
+        game.addLog(`${phaseMsg} Şok dalgaları yayılıyor! (Faz ${this.phase})`, "death");
+
+        // Faz'a göre renk ve sayı artar
+        const colors = ['#ff453a', '#ff8c00', '#ff0000', '#ff00ff'];
+        const color  = colors[Math.min(this.phase - 1, 3)];
+        const pCount = 20 + (this.phase - 1) * 8; // Faz1=20, Faz4=44 partikül
+
+        for (let p = 0; p < pCount; p++) {
+            const angle = (p / pCount) * Math.PI * 2;
+            const spd = 3 + Math.random() * 3 + (this.phase - 1);
             game.particles.push(new Particle(
-                this.x, this.y,
-                '#ff453a', // Kırmızı/Turuncu alev partikülleri
+                this.x, this.y, color,
                 Math.cos(angle) * spd,
                 Math.sin(angle) * spd,
-                Math.random() * 4 + 4,
-                40
+                Math.random() * 4 + 3,
+                45
             ));
+        }
+
+        // Faz 4: Double Slam (2. dalgayı 400ms sonra fırlat)
+        if (this.phase >= 4) {
+            setTimeout(() => {
+                if (!game || game.state !== 'playing') return;
+                this.slamActive = true;
+                this.slamRadius = 10;
+                this.slamX = this.x;
+                this.slamY = this.y;
+                SoundEngine.playBossSlap();
+            }, 400);
         }
     }
 

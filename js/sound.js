@@ -357,6 +357,98 @@ const SoundEngine = {
         osc.stop(now + 0.45);
     },
 
+    // 13. Düşman Saldırısı (Enemy Attack) - Agresif bas darbesi
+    playEnemyAttack() {
+        if (this.isMuted || !this.ctx) return;
+        this.init();
+
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(180, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(55, this.ctx.currentTime + 0.10);
+
+        gain.gain.setValueAtTime(0.25, this.ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.10);
+
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.10);
+    },
+
+    // 14. Yanma Debuff (Burn) - Sıcak ve keskin tiz crackle
+    playBurn() {
+        if (this.isMuted || !this.ctx) return;
+        this.init();
+
+        const now = this.ctx.currentTime;
+        // Kısa ve sert bir alev sesi (frekans spike)
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(800, now);
+        osc.frequency.exponentialRampToValueAtTime(200, now + 0.08);
+
+        gain.gain.setValueAtTime(0.12, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.08);
+
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+
+        osc.start();
+        osc.stop(now + 0.08);
+    },
+
+    // 15. Zehir Debuff (Poison) - Derin ve rahatsız edici bubble sesi
+    playPoison() {
+        if (this.isMuted || !this.ctx) return;
+        this.init();
+
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(120, now);
+        osc.frequency.linearRampToValueAtTime(85, now + 0.18);
+
+        gain.gain.setValueAtTime(0.14, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.18);
+
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+
+        osc.start();
+        osc.stop(now + 0.18);
+    },
+
+    // 16. Yavaşlama Debuff (Slow) - Uğultulu alçalan ton
+    playSlow() {
+        if (this.isMuted || !this.ctx) return;
+        this.init();
+
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(350, now);
+        osc.frequency.linearRampToValueAtTime(100, now + 0.30);
+
+        gain.gain.setValueAtTime(0.10, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.30);
+
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+
+        osc.start();
+        osc.stop(now + 0.30);
+    },
+
     // --- BGM: ARKA PLAN MÜZİĞİ ---
     
     // Prosedürel 8-Bit Retro Müzik Motoru (Loops)
