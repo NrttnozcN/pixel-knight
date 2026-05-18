@@ -248,14 +248,16 @@ h1.pixel-text {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(5, 5, 8, 0.85);
+    background: rgba(5, 5, 8, 0.92);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     display: none;
     justify-content: center;
     align-items: center;
-    z-index: 100;
+    z-index: 210; /* Mobil kontroller (150) ve boss HUD (50) üzerinde */
     animation: fadeIn 0.4s ease forwards;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
 .overlay-screen.active {
@@ -1330,71 +1332,84 @@ h1.pixel-text {
 
 /* Dokunmatik cihazlar VEYA küçük ekranlar */
 @media (pointer: coarse), (max-width: 900px) {
-    /* Dar savaş günlüğü sidebar'ı gizle — ekran alanını koru */
-    .sidebar-combat-log-panel {
-        display: none !important;
-    }
+    .sidebar-combat-log-panel { display: none !important; }
 
-    /* Dashboard tam ekranı kaplasın */
+    /* iOS Safari ve Android Chrome tam ekran fix */
     .dashboard-wrapper {
         width: 100vw;
-        height: 100dvh; /* dynamic viewport — mobil tarayıcı toolbar'ına uyum */
+        /* dvh: dinamik viewport (tarayıcı toolbar'ını hesaba katar) */
+        height: 100dvh;
+        height: -webkit-fill-available; /* iOS Safari fallback */
         max-width: none;
         max-height: none;
         border-radius: 0;
         border: none;
+        overflow: hidden;
     }
 
     .game-viewport-container {
-        padding: 8px;
-        gap: 8px;
-    }
-
-    /* Alt HUD: küçük ekranda yatay scroll'a geç */
-    .horizontal-dashboard-bottom {
-        height: 150px;
-        min-height: 150px;
-        grid-template-columns: 1.1fr 1.2fr 1fr;
+        padding: 6px;
         gap: 6px;
-        overflow-x: auto;
-        flex-shrink: 0;
-    }
-
-    .horizontal-dashboard-bottom .bottom-section {
-        padding: 7px 9px;
-        min-width: 160px;
+        height: 100%;
+        overflow: hidden;
     }
 
     /* Header küçülsün */
     .game-header {
-        height: 50px;
-        padding: 0 12px;
+        height: 44px;
+        min-height: 44px;
+        flex-shrink: 0;
+        padding: 0 10px;
     }
 
-    h1.pixel-text { font-size: 13px; }
+    h1.pixel-text { font-size: 12px; }
 
     .floor-badge, .gold-badge {
-        font-size: 11px;
-        padding: 5px 10px;
+        font-size: 10px;
+        padding: 4px 8px;
     }
 
-    /* Stat kutuları font küçülsün */
+    /* Canvas tam dolsun */
+    .canvas-wrapper {
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    /* Alt HUD: kompakt */
+    .horizontal-dashboard-bottom {
+        height: 130px;
+        min-height: 130px;
+        flex-shrink: 0;
+        grid-template-columns: 1.1fr 1.2fr 1fr;
+        gap: 5px;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .horizontal-dashboard-bottom .bottom-section {
+        padding: 5px 7px;
+        min-width: 150px;
+    }
+
     .stat-name { font-size: 6px; }
     .stat-info .pixel-text { font-size: 7px; }
-    .panel-title { font-size: 8px; }
+    .panel-title { font-size: 7px; }
 }
 
-/* Telefon dikey (portrait) — alt HUD'u gizle, oyun alanını maksimize et */
-@media (max-width: 600px) and (orientation: portrait) {
-    .horizontal-dashboard-bottom {
-        display: none;
-    }
+/* ─── Telefon DİKEY (portrait ≤ 500px genişlik) ─── */
+@media (max-width: 500px) and (orientation: portrait) {
+    /* Alt HUD gizle → canvas tam dolar, mobile kontrollerle oynanır */
+    .horizontal-dashboard-bottom { display: none !important; }
 
-    /* Telefon dikeyde canvas daha büyük gösterilsin */
-    .canvas-wrapper {
-        min-height: 0;
-        flex: 1;
-    }
+    .game-viewport-container { padding: 4px; gap: 4px; }
+
+    /* Header minimal */
+    .game-header { height: 40px; min-height: 40px; }
+    h1.pixel-text { font-size: 11px; }
+    .floor-badge, .gold-badge { font-size: 9px; padding: 3px 7px; }
+
+    .canvas-wrapper { flex: 1; min-height: 0; border-radius: 0; }
 }
 
 /* ─── Mobil Mini HUD (varsayılan: gizli, sadece yatay telefonda gösterilir) ─── */
@@ -1466,73 +1481,59 @@ h1.pixel-text {
     letter-spacing: 0.5px;
 }
 
-/* ─── Telefon YATAY (landscape) — tam ekran modu ─── */
+/* ─── Telefon YATAY (landscape ≤ 500px yükseklik) — TAM EKRAN MOD ─── */
 @media (max-height: 500px) and (orientation: landscape) {
-    /* Header gizle → ekran alanını kurtar */
-    .game-header { display: none !important; }
+    /* Tüm chrome'u gizle → canvas full-screen */
+    .game-header                  { display: none !important; }
+    .horizontal-dashboard-bottom  { display: none !important; }
+    .sidebar-combat-log-panel     { display: none !important; }
 
-    /* Alt HUD gizle → tam alan canvas'a kalır */
-    .horizontal-dashboard-bottom { display: none !important; }
+    .dashboard-wrapper {
+        overflow: hidden;
+    }
 
-    /* Dış padding sıfırla */
+    /* Padding sıfırla */
     .game-viewport-container {
         padding: 0 !important;
         gap: 0 !important;
     }
 
-    /* Canvas wrapper tam alanı kaplasın */
+    /* Canvas tam dolar */
     .canvas-wrapper {
         border-radius: 0;
+        border: none;
         flex: 1;
         min-height: 0;
     }
 
-    /* Canvas tam genişlik/yükseklik */
-    #game-canvas {
-        width: 100% !important;
-        height: 100% !important;
-    }
-
-    /* Mini HUD şeridini göster */
+    /* Mini floating HUD göster */
     .mob-mini-hud { display: flex; }
 
-    /* Mobil kontrolleri biraz küçült — ekranı daha az kaplar */
+    /* ─── Kontroller küçük ve kenarlarda ─── */
     .mobile-controls {
-        height: 130px;
-        padding: 6px 12px 10px;
+        height: 100%;      /* Canvas yüksekliğine tam otur */
+        padding: 8px 14px 16px;
+        align-items: flex-end;
     }
 
-    .joystick-base {
-        width: 90px;
-        height: 90px;
-    }
-
-    .joystick-knob {
-        width: 40px;
-        height: 40px;
-    }
+    .joystick-base  { width: 88px;  height: 88px; }
+    .joystick-knob  { width: 38px;  height: 38px; }
 
     .mob-attack-btn {
-        width: 72px;
-        height: 72px;
-        font-size: 20px;
+        width: 70px; height: 70px; font-size: 20px;
     }
-
     .mob-attack-btn span { font-size: 6px; }
 
     .mob-skill-btn,
-    .mob-interact-btn {
-        width: 46px;
-        height: 46px;
-        font-size: 17px;
-    }
+    .mob-interact-btn   { width: 44px; height: 44px; font-size: 16px; }
 
-    .mob-skills-row { gap: 6px; }
+    .mob-skills-row { gap: 5px; }
+    .mob-right      { gap: 6px; }
 
-    /* Boss HUD küçülsün */
-    .boss-hud-panel { width: 240px; padding: 5px 12px; }
-    .boss-title { font-size: 7px; }
-    .boss-hp-bar-bg { height: 6px; }
+    /* Boss HUD kompakt */
+    .boss-hud-panel  { width: 220px; padding: 4px 10px; }
+    .boss-title      { font-size: 6px; }
+    .boss-hp-bar-bg  { height: 5px; }
 }
 
 /* ==========================================================================
