@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pixel Knight - Retro 2D Dungeon Crawler</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <canvas id="bg-particles" class="bg-canvas"></canvas>
+
+    <div class="dashboard-wrapper">
+        <!-- Üst Başlık -->
+        <header class="game-header">
+            <div class="header-logo">
+                <i class="fa-solid fa-shield-halved neon-pulse-icon"></i>
+                <h1 class="pixel-text text-glow">PIXEL KNIGHT</h1>
+            </div>
+            <div class="header-status">
+                <span class="floor-badge">
+                    <i class="fa-solid fa-dungeon"></i> ZİNDAN: <span id="floor-val" class="pixel-text">1</span>
+                </span>
+                <span class="gold-badge">
+                    <i class="fa-solid fa-coins gold-color"></i> <span id="gold-val" class="pixel-text">0</span>
+                </span>
+            </div>
+            <div class="header-controls">
+                <button id="btn-sound" class="control-btn" title="Müzik Aç/Kapat">
+                    <i class="fa-solid fa-volume-high"></i>
+                </button>
+                <button id="btn-restart" class="control-btn" title="Yeniden Başlat">
+                    <i class="fa-solid fa-rotate-right"></i>
+                </button>
+            </div>
+        </header>
+
+        <div class="dashboard-body">
+
+            <!-- SOL: Oyun Ekranı + Alt HUD -->
+            <main class="game-viewport-container">
+
+                <!-- Oyun Canvas Alanı -->
+                <div class="canvas-wrapper">
+                    <canvas id="game-canvas" width="640" height="480"></canvas>
+
+                    <!-- Boss HP HUD (üstten kayar, başlangıçta gizli) -->
+                    <div id="boss-hud" class="boss-hud-panel">
+                        <div class="boss-header">
+                            <i class="fa-solid fa-skull red-color"></i>
+                            <span class="pixel-text boss-title">ZİNDAN MUHAFIZI</span>
+                            <i class="fa-solid fa-skull red-color"></i>
+                        </div>
+                        <div class="boss-hp-bar-bg">
+                            <div id="boss-hp-bar" class="boss-hp-fill">
+                                <div class="boss-bar-shine"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Katman 1: Başlangıç Ekranı -->
+                    <div id="screen-start" class="overlay-screen active">
+                        <div class="screen-content">
+                            <h2 class="pixel-text text-glow large-text">KARANLIK BAŞLIYOR</h2>
+                            <p class="description">Zindanların derinliklerindeki portalı bul, yaratıklarla savaş ve efsanevi ganimetleri topla!</p>
+                            <div class="wasd-instructions">
+                                <div class="key-guide"><span class="key-cap">W</span><span class="key-cap">A</span><span class="key-cap">S</span><span class="key-cap">D</span> <span>Hareket</span></div>
+                                <div class="key-guide"><span class="key-cap"><i class="fa-solid fa-mouse-pointer"></i> Sol Tık</span> <span>Saldırı</span></div>
+                                <div class="key-guide"><span class="key-cap">E</span> <span>Etkileşim (Sandık / Portal / Satıcı)</span></div>
+                                <div class="key-guide"><span class="key-cap">Q</span> <span>Hızlı Hücum</span></div>
+                                <div class="key-guide"><span class="key-cap">R</span> <span>Silah Yağmuru</span></div>
+                            </div>
+                            <button id="btn-start" class="action-btn pixel-text">MACERAYA BAŞLA</button>
+                        </div>
+                    </div>
+
+                    <!-- Katman 2: Seviye Atlama -->
+                    <div id="screen-upgrade" class="overlay-screen">
+                        <div class="screen-content">
+                            <div class="level-up-banner">
+                                <i class="fa-solid fa-crown level-up-crown"></i>
+                                <h2 class="pixel-text text-glow gold-color bounce-anim">SEVİYE ATLADIN!</h2>
+                            </div>
+                            <p class="description">Geliştirmek istediğin efsanevi gücü seç:</p>
+                            <div class="upgrade-cards" id="upgrade-options-container"></div>
+                        </div>
+                    </div>
+
+                    <!-- Katman 3: Game Over -->
+                    <div id="screen-gameover" class="overlay-screen">
+                        <div class="screen-content">
+                            <i class="fa-solid fa-skull-crossbones skull-anim red-color"></i>
+                            <h2 class="pixel-text text-glow red-color large-text">ELENDİN</h2>
+                            <p class="description">Zindan seni yuttu... Ama kazandığın şan sonsuza dek yaşayacak!</p>
+                            <div class="stats-summary">
+                                <div class="stat-line"><span>Ziyaret Edilen Kat:</span> <span id="summary-floor" class="pixel-text">1</span></div>
+                                <div class="stat-line"><span>Toplanan Altın:</span> <span id="summary-gold" class="pixel-text gold-color">0</span></div>
+                                <div class="stat-line"><span>Alt Edilen Düşman:</span> <span id="summary-kills" class="pixel-text red-color">0</span></div>
+                            </div>
+                            <button id="btn-retry" class="action-btn pixel-text red-btn">YENİDEN DENE</button>
+                        </div>
+                    </div>
+
+                    <!-- Katman 4: Gizemli Satıcı Dükkanı -->
+                    <div id="screen-shop" class="overlay-screen">
+                        <div class="screen-content shop-content">
+                            <div class="level-up-banner">
+                                <i class="fa-solid fa-store gold-color" style="font-size:32px; filter:drop-shadow(0 0 10px var(--neon-gold))"></i>
+                                <h2 class="pixel-text gold-color">GİZEMLİ SATICI</h2>
+                            </div>
+                            <p class="description" style="font-size:12px; margin-bottom:4px;">Altınlarınla güçlen, düşmanlarını ez!</p>
+                            <div id="shop-items-container" class="shop-grid"></div>
+                            <button id="btn-close-shop" class="action-btn pixel-text" style="font-size:10px; padding:12px 28px;">
+                                <i class="fa-solid fa-door-open"></i> DÜKKANI KAPAT [E]
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Mobil Kontroller (sadece dokunmatik cihazlarda gösterilir) -->
+                    <div id="mobile-controls" class="mobile-controls" style="display:none">
+                        <!-- Sol: Joystick -->
+                        <div class="mob-left">
+                            <div id="joystick-base" class="joystick-base">
+                                <div id="joystick-knob" class="joystick-knob"></div>
+                            </div>
+                        </div>
+                        <!-- Sağ: Butonlar -->
+                        <div class="mob-right">
+                            <div class="mob-skills-row">
+                                <button id="btn-mob-q" class="mob-btn mob-skill-btn">
+                                    <span class="mob-key">Q</span>
+                                    <i class="fa-solid fa-bolt"></i>
+                                </button>
+                                <button id="btn-mob-r" class="mob-btn mob-skill-btn mob-r">
+                                    <span class="mob-key">R</span>
+                                    <i class="fa-solid fa-cloud-rain"></i>
+                                </button>
+                                <button id="btn-mob-e" class="mob-btn mob-interact-btn">
+                                    <span class="mob-key">E</span>
+                                    <i class="fa-solid fa-hand"></i>
+                                </button>
+                            </div>
+                            <button id="btn-mob-attack" class="mob-btn mob-attack-btn">
+                                <i class="fa-solid fa-khanda"></i>
+                                <span>SALDIRI</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Alt Yatay HUD (3 Sütun) -->
+                <div class="horizontal-dashboard-bottom">
+
+                    <!-- Sütun 1: Avatar + HP/XP Barları + Nitelikler -->
+                    <div class="bottom-section section-profile-stats">
+                        <div class="panel-title pixel-text"><i class="fa-solid fa-user"></i> KARAKTER</div>
+                        <div class="player-profile">
+                            <div class="avatar-container">
+                                <canvas id="avatar-canvas" width="64" height="64"></canvas>
+                                <div class="level-indicator">
+                                    <span class="level-lbl">LVL</span>
+                                    <span id="level-val" class="pixel-text level-num">1</span>
+                                </div>
+                            </div>
+                            <div class="bars-container">
+                                <div class="bar-group">
+                                    <div class="bar-label">
+                                        <span><i class="fa-solid fa-heart red-color"></i> SAĞLIK</span>
+                                        <span id="hp-txt" class="pixel-text font-small">100 / 100</span>
+                                    </div>
+                                    <div class="bar-bg">
+                                        <div id="hp-bar" class="bar-fill hp-fill" style="width:100%">
+                                            <div class="bar-shine"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="bar-group">
+                                    <div class="bar-label">
+                                        <span><i class="fa-solid fa-star gold-color"></i> TECRÜBE</span>
+                                        <span id="xp-txt" class="pixel-text font-small">0 / 100</span>
+                                    </div>
+                                    <div class="bar-bg">
+                                        <div id="xp-bar" class="bar-fill xp-fill" style="width:0%">
+                                            <div class="bar-shine"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bottom-stats-container">
+                            <div class="stats-grid">
+                                <div class="stat-box" title="Saldırı gücü">
+                                    <span class="stat-icon red-color"><i class="fa-solid fa-gavel"></i></span>
+                                    <div class="stat-info">
+                                        <span class="stat-name">HASAR</span>
+                                        <span id="stat-atk" class="pixel-text">10</span>
+                                    </div>
+                                </div>
+                                <div class="stat-box" title="Gelen hasarı azaltır">
+                                    <span class="stat-icon cyan-color"><i class="fa-solid fa-shield"></i></span>
+                                    <div class="stat-info">
+                                        <span class="stat-name">DEFANS</span>
+                                        <span id="stat-def" class="pixel-text">2</span>
+                                    </div>
+                                </div>
+                                <div class="stat-box" title="Hareket hızı">
+                                    <span class="stat-icon green-color"><i class="fa-solid fa-gauge-high"></i></span>
+                                    <div class="stat-info">
+                                        <span class="stat-name">HIZ</span>
+                                        <span id="stat-spd" class="pixel-text">2.5</span>
+                                    </div>
+                                </div>
+                                <div class="stat-box" title="2 kat hasar şansı">
+                                    <span class="stat-icon gold-color"><i class="fa-solid fa-bolt"></i></span>
+                                    <div class="stat-info">
+                                        <span class="stat-name">KRİTİK</span>
+                                        <span id="stat-crit" class="pixel-text">5%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sütun 2: Ekipman (8 Slot) + Yetenekler -->
+                    <div class="bottom-section section-equipment-skills">
+                        <div class="panel-title pixel-text"><i class="fa-solid fa-wand-sparkles"></i> EKİPMAN & YETENEKLER</div>
+                        <div class="equipment-slots">
+                            <div class="equip-slot" id="slot-helmet" data-slot="helmet">
+                                <div class="slot-bg-icon"><i class="fa-solid fa-helmet-safety"></i></div>
+                                <div class="slot-item-container"></div>
+                                <span class="slot-label">MİĞFER</span>
+                            </div>
+                            <div class="equip-slot" id="slot-necklace" data-slot="necklace">
+                                <div class="slot-bg-icon"><i class="fa-solid fa-circle-dot"></i></div>
+                                <div class="slot-item-container"></div>
+                                <span class="slot-label">KOLYE</span>
+                            </div>
+                            <div class="equip-slot" id="slot-earrings" data-slot="earrings">
+                                <div class="slot-bg-icon"><i class="fa-solid fa-gem"></i></div>
+                                <div class="slot-item-container"></div>
+                                <span class="slot-label">KÜPE</span>
+                            </div>
+                            <div class="equip-slot" id="slot-ring" data-slot="ring">
+                                <div class="slot-bg-icon"><i class="fa-solid fa-ring"></i></div>
+                                <div class="slot-item-container"></div>
+                                <span class="slot-label">YÜZÜK</span>
+                            </div>
+                            <div class="equip-slot" id="slot-weapon" data-slot="weapon">
+                                <div class="slot-bg-icon"><i class="fa-solid fa-khanda"></i></div>
+                                <div class="slot-item-container"></div>
+                                <span class="slot-label">SİLAH</span>
+                            </div>
+                            <div class="equip-slot" id="slot-armor" data-slot="armor">
+                                <div class="slot-bg-icon"><i class="fa-solid fa-shirt"></i></div>
+                                <div class="slot-item-container"></div>
+                                <span class="slot-label">ZIRH</span>
+                            </div>
+                            <div class="equip-slot" id="slot-gloves" data-slot="gloves">
+                                <div class="slot-bg-icon"><i class="fa-solid fa-hand"></i></div>
+                                <div class="slot-item-container"></div>
+                                <span class="slot-label">ELDİVEN</span>
+                            </div>
+                            <div class="equip-slot" id="slot-boots" data-slot="boots">
+                                <div class="slot-bg-icon"><i class="fa-solid fa-boot"></i></div>
+                                <div class="slot-item-container"></div>
+                                <span class="slot-label">ÇIZME</span>
+                            </div>
+                        </div>
+                        <div class="skills-panel-wrapper">
+                            <div class="skills-row">
+                                <button class="skill-btn" id="btn-skill-q">
+                                    <span class="skill-key">Q</span>
+                                    <i class="fa-solid fa-bolt skill-icon"></i>
+                                    <div class="skill-info"><span>HIZLI HÜCUM</span></div>
+                                    <div class="cooldown-overlay" id="cooldown-q"></div>
+                                </button>
+                                <button class="skill-btn" id="btn-skill-w">
+                                    <span class="skill-key">R</span>
+                                    <i class="fa-solid fa-cloud-rain skill-icon"></i>
+                                    <div class="skill-info"><span>SİLAH YAĞMURU</span></div>
+                                    <div class="cooldown-overlay" id="cooldown-r"></div>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sütun 3: Envanter (16 Slot) -->
+                    <div class="bottom-section section-inventory">
+                        <div class="inventory-header">
+                            <div class="panel-title pixel-text"><i class="fa-solid fa-briefcase"></i> ENVANTER</div>
+                            <span id="inv-count" class="pixel-text font-small">0/16</span>
+                        </div>
+                        <div class="inventory-grid" id="inventory-container"></div>
+                    </div>
+
+                </div>
+            </main>
+
+            <!-- SAĞ: Savaş Günlüğü (Dikey Dar Sidebar) -->
+            <aside class="sidebar-combat-log-panel">
+                <div class="combat-log-container">
+                    <div class="combat-log-header">
+                        <span class="pixel-text"><i class="fa-solid fa-terminal"></i> SAVAŞ GÜNLÜĞÜ</span>
+                        <span class="pulse-dot"></span>
+                    </div>
+                    <div id="combat-log" class="combat-log-body">
+                        <p class="log-entry system"><span class="time">[00:00:00]</span> Sistem: Zindan hazırlandı. Kahraman bekleniyor...</p>
+                    </div>
+                </div>
+            </aside>
+
+        </div>
+    </div>
+
+    <!-- Eşya Tooltip -->
+    <div id="item-tooltip" class="custom-tooltip">
+        <h4 id="tooltip-name" class="pixel-text">Eşya Adı</h4>
+        <div id="tooltip-rarity" class="item-rarity-badge">Efsanevi</div>
+        <hr class="tooltip-divider">
+        <div id="tooltip-stats" class="tooltip-stats-list">
+            <div>+10 Hasar</div>
+        </div>
+        <div id="tooltip-description" class="tooltip-desc">Eski bir şövalyenin kayıp kılıcı.</div>
+        <div id="tooltip-sell-price" class="tooltip-sell-price"></div>
+        <div class="tooltip-action-hint">Kuşanmak veya kullanmak için tıkla</div>
+    </div>
+
+    <script src="js/sprites.js"></script>
+    <script src="js/sound.js"></script>
+    <script src="js/world.js"></script>
+    <script src="js/entities.js"></script>
+    <script src="js/engine.js"></script>
+    <script src="js/game.js"></script>
+    <script src="js/mobile.js"></script>
+</body>
+</html>

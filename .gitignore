@@ -1,0 +1,13 @@
+# OS dosyaları
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor dosyaları
+.vscode/
+.idea/
+*.suo
+*.user
+
+# Log dosyaları
+*.log
