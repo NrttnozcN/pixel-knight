@@ -10,6 +10,8 @@ const SoundEngine = {
     ctx: null,
     masterGain: null,
     musicInterval: null,
+    _combatInterval: null,
+    _combatMode: false,
     isMuted: true, // Varsayılan olarak tarayıcı politikaları nedeniyle sessiz başlar
     musicPlaying: false,
 
@@ -534,7 +536,43 @@ const SoundEngine = {
             clearInterval(this.musicInterval);
             this.musicInterval = null;
         }
+        if (this._combatInterval) {
+            clearInterval(this._combatInterval);
+            this._combatInterval = null;
+        }
         this.musicPlaying = false;
+        this._combatMode = false;
+    },
+
+    // Dinamik müzik: savaş modunda hi-hat perküsyon katmanı ekler
+    setCombatMode(active) {
+        if (active === this._combatMode) return;
+        this._combatMode = active;
+
+        if (active) {
+            // Hi-hat + hız artışı efekti
+            if (this._combatInterval) clearInterval(this._combatInterval);
+            this._combatInterval = setInterval(() => {
+                if (this.isMuted || !this._combatMode || !this.ctx) return;
+                const buf = this.ctx.createBuffer(1, 512, this.ctx.sampleRate);
+                const data = buf.getChannelData(0);
+                for (let i = 0; i < 512; i++) data[i] = (Math.random() * 2 - 1);
+                const src = this.ctx.createBufferSource();
+                const gain = this.ctx.createGain();
+                src.buffer = buf;
+                gain.gain.setValueAtTime(0.012, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.03);
+                src.connect(gain);
+                gain.connect(this.masterGain);
+                src.start();
+                src.stop(this.ctx.currentTime + 0.03);
+            }, 115);
+        } else {
+            if (this._combatInterval) {
+                clearInterval(this._combatInterval);
+                this._combatInterval = null;
+            }
+        }
     }
 };
 

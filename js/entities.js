@@ -342,6 +342,12 @@ class Item {
             this.rarity = 'legendary';
             this.description = 'Sağlığını +70 anında yeniler!';
         }
+        // ALTIN ANAHTAR
+        else if (this.type === 'gold_key') {
+            this.name = 'Altın Anahtar';
+            this.rarity = 'legendary';
+            this.description = 'Kilitli hazine sandığını açmak için kullanılır. Efsanevi ganimetler bekliyor!';
+        }
     }
 
     applyEnchantment() {
@@ -458,21 +464,46 @@ class Item {
 
 // --- 4. ETKİLEŞİMLİ HAZİNE SANDIĞI ---
 class Chest {
-    constructor(x, y) {
+    constructor(x, y, locked = false) {
         this.x = x;
         this.y = y;
         this.width = 48;
         this.height = 48;
         this.opened = false;
+        this.locked = locked; // Altın anahtar gerektiren kilitli sandık
     }
 
     open(game) {
         if (this.opened) return;
+
+        // Kilitli sandık: altın anahtar gerekir
+        if (this.locked) {
+            const keyIdx = game.player.inventory.findIndex(i => i.type === 'gold_key');
+            if (keyIdx === -1) {
+                game.addLog("🔒 Bu sandık kilitli! Altın Anahtar gerekiyor.", "system");
+                game.textParticles.push(new TextParticle(this.x, this.y - 30, "KİLİTLİ!", "#ffd700", "9px", true));
+                return;
+            }
+            // Anahtarı tüket
+            game.player.inventory.splice(keyIdx, 1);
+            game.addLog("🗝️ Altın Anahtar kullanıldı! Efsanevi hazine açılıyor...", "loot");
+            this.locked = false;
+            // Garantili efsanevi loot
+            const cats = ['sword', 'armor', 'helmet', 'ring', 'necklace', 'earrings', 'gloves', 'boots', 'dagger', 'staff'];
+            for (let i = 0; i < 2; i++) {
+                const cat = cats[Math.floor(Math.random() * cats.length)];
+                game.items.push(new Item(this.x + (Math.random()-0.5)*20, this.y - 10, cat + '_legendary'));
+            }
+            const bonus = Math.floor(50 + Math.random() * 80);
+            game.items.push(new Item(this.x, this.y - 10, 'gold', bonus));
+            game.triggerScreenShake(6);
+        }
+
         this.opened = true;
-        
+
         // Sandık açma sesi
         SoundEngine.playChestOpen();
-        game.addLog("Sandık açıldı! Eşyalar saçılıyor.", "loot");
+        if (!this.locked) game.addLog("Sandık açıldı! Eşyalar saçılıyor.", "loot");
 
         // Ganimet havuzunu zenginleştir
         const itemCount = Math.floor(Math.random() * 3) + 3; // 3-5 adet ganimet
@@ -523,16 +554,26 @@ class Chest {
 
         const spriteName = this.opened ? 'chest_open' : 'chest_closed';
         SpriteEngine.draw(ctx, spriteName, drawX, drawY, this.width, this.height);
-        
-        // Eğer açılmadıysa ve oyuncu yakınındaysa üzerine minik bi parıltı veya ipucu çiz
+
         if (!this.opened) {
             ctx.save();
-            ctx.shadowBlur = 10;
-            ctx.shadowColor = 'var(--neon-cyan)';
-            // Yavaşça yanıp sönen ince bir çerçeve
-            ctx.strokeStyle = `rgba(0, 240, 255, ${0.2 + Math.sin(Date.now() / 150) * 0.15})`;
-            ctx.lineWidth = 1.5;
-            ctx.strokeRect(drawX - 2, drawY - 2, this.width + 4, this.height + 4);
+            if (this.locked) {
+                // Kilitli sandık: altın parıltı + kilit ikonu
+                ctx.shadowBlur = 14;
+                ctx.shadowColor = '#ffd700';
+                ctx.strokeStyle = `rgba(255,215,0,${0.5 + Math.sin(Date.now() / 200) * 0.3})`;
+                ctx.lineWidth = 2;
+                ctx.strokeRect(drawX - 2, drawY - 2, this.width + 4, this.height + 4);
+                ctx.font = "13px serif";
+                ctx.textAlign = 'center';
+                ctx.fillText('🔒', this.x - camera.x, this.y - camera.y - this.height/2 - 4);
+            } else {
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = 'var(--neon-cyan)';
+                ctx.strokeStyle = `rgba(0, 240, 255, ${0.2 + Math.sin(Date.now() / 150) * 0.15})`;
+                ctx.lineWidth = 1.5;
+                ctx.strokeRect(drawX - 2, drawY - 2, this.width + 4, this.height + 4);
+            }
             ctx.restore();
         }
     }
@@ -811,6 +852,12 @@ class Enemy {
         const goldVal = Math.floor(this.goldReward * luckMult);
         if (goldVal > 0) {
             game.items.push(new Item(this.x, this.y, 'gold', goldVal));
+        }
+
+        // Altın Anahtar düşürme (%8 şans: slime_shadow ve skeleton)
+        if ((this.type === 'slime_shadow' || this.type === 'skeleton') && Math.random() < 0.08) {
+            game.items.push(new Item(this.x, this.y, 'gold_key'));
+            game.addLog("🗝️ Altın Anahtar düştü! Kilitli sandıkları açabilirsin.", "loot");
         }
 
         // Düşman ölüm ganimetleri (Luck: efsanevi şansını artırır)
@@ -1943,6 +1990,79 @@ class Player {
             ctx.fill();
             ctx.restore();
         }
+    }
+}
+
+// --- 7a. ÇEVRE TUZAĞI ---
+class Trap {
+    constructor(x, y, type = 'spike') {
+        this.x = x;
+        this.y = y;
+        this.type = type; // 'spike' | 'fire'
+        this.phase = Math.floor(Math.random() * 120);
+        this.maxPhase = 120;
+        this.warnStart = 95;
+        this.activeStart = 105;
+        this.active = false;
+        this.hitCooldown = 0;
+        this.damage = type === 'spike' ? 8 : 12;
+    }
+
+    update(player, game) {
+        this.phase = (this.phase + 1) % this.maxPhase;
+        this.active = this.phase >= this.activeStart;
+        if (this.hitCooldown > 0) this.hitCooldown--;
+        if (this.active && this.hitCooldown === 0 && player.hp > 0) {
+            const dist = Math.hypot(player.x - this.x, player.y - this.y);
+            if (dist < 18) {
+                player.takeDamage(this.damage, game);
+                this.hitCooldown = 60;
+                game.addLog(`⚠️ Tuzak! ${this.damage} hasar aldın.`, "enemy");
+            }
+        }
+    }
+
+    draw(ctx, camera) {
+        const dx = this.x - camera.x;
+        const dy = this.y - camera.y;
+        const isWarn = this.phase >= this.warnStart && !this.active;
+        ctx.save();
+        if (this.type === 'spike') {
+            ctx.fillStyle = '#444';
+            ctx.fillRect(dx - 13, dy - 3, 26, 6);
+            if (this.active) {
+                ctx.fillStyle = '#bbb';
+                ctx.shadowColor = '#ff3333'; ctx.shadowBlur = 8;
+                for (let i = -9; i <= 9; i += 7) {
+                    ctx.beginPath();
+                    ctx.moveTo(dx + i, dy - 3);
+                    ctx.lineTo(dx + i + 3, dy - 15);
+                    ctx.lineTo(dx + i + 6, dy - 3);
+                    ctx.fill();
+                }
+            } else if (isWarn) {
+                const a = (Math.sin(Date.now() / 70) + 1) / 2;
+                ctx.fillStyle = `rgba(255,80,0,${a * 0.5})`;
+                ctx.fillRect(dx - 13, dy - 3, 26, 6);
+            }
+        } else {
+            ctx.fillStyle = '#5a3010';
+            ctx.fillRect(dx - 7, dy - 7, 14, 14);
+            if (this.active) {
+                const h = 22 + Math.sin(Date.now() / 60) * 6;
+                const g = ctx.createLinearGradient(dx, dy - 7, dx, dy - 7 - h);
+                g.addColorStop(0, 'rgba(255,180,0,0.9)');
+                g.addColorStop(0.5, 'rgba(255,60,0,0.7)');
+                g.addColorStop(1, 'rgba(255,0,0,0)');
+                ctx.fillStyle = g;
+                ctx.shadowColor = '#ff5500'; ctx.shadowBlur = 16;
+                ctx.fillRect(dx - 5, dy - 7 - h, 10, h);
+            } else if (isWarn) {
+                const a = (Math.sin(Date.now() / 90) + 1) / 2;
+                ctx.shadowColor = `rgba(255,120,0,${a})`; ctx.shadowBlur = 8;
+            }
+        }
+        ctx.restore();
     }
 }
 

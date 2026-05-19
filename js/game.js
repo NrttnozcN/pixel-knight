@@ -33,6 +33,8 @@ const GameEngine = {
     selectedClass: 'warrior', // Başlangıç sınıfı: warrior / ranger / mage
     _hoveredInvIndex: -1,    // Tooltip üzerindeki envanter slot indeksi (salvage için)
     _tooltipHideTimeout: null,
+    traps: [],               // Çevre tuzakları
+    _lastCombatState: false, // Dinamik müzik için savaş durumu takibi
     
     // Portal animasyonu
     portalFrame: 1,
@@ -175,10 +177,12 @@ const GameEngine = {
         this.killsCount = 0;
         this.lives = 3;
         this.shrines = [];
+        this.traps = [];
         this.currentQuest = null;
         this.questProgress = 0;
         this.questCompleted = false;
         this.playerHitThisFloor = false;
+        this._lastCombatState = false;
         this.enemies = [];
         this.chests = [];
         this.items = [];
@@ -235,6 +239,8 @@ const GameEngine = {
         this.particles = [];
         this.textParticles = [];
         this.projectiles = [];
+        this.traps = [];
+        this._lastCombatState = false;
         this.merchant = null;
         this.boss = null;
         this.shopItems = null;
@@ -291,6 +297,31 @@ const GameEngine = {
         if (!World.spawnPoints.boss && Math.random() < 0.40 && World.spawnPoints.enemies.length > 0) {
             const sp = World.spawnPoints.enemies[Math.floor(Math.random() * World.spawnPoints.enemies.length)];
             this.shrines.push(new Shrine(sp.x + 64, sp.y + 64));
+        }
+
+        // Çevre tuzakları: 2. kattan itibaren boss katı hariç 2-4 tuzak
+        if (this.floor > 1 && !World.spawnPoints.boss && World.spawnPoints.enemies.length > 0) {
+            const trapCount = 2 + Math.floor(Math.random() * 3);
+            const trapTypes = ['spike', 'fire'];
+            for (let t = 0; t < trapCount; t++) {
+                const ep = World.spawnPoints.enemies[Math.floor(Math.random() * World.spawnPoints.enemies.length)];
+                const tx = ep.x + (Math.random() - 0.5) * 96;
+                const ty = ep.y + (Math.random() - 0.5) * 96;
+                if (World.isWalkable(tx, ty)) {
+                    const type = trapTypes[Math.floor(Math.random() * trapTypes.length)];
+                    this.traps.push(new Trap(
+                        Math.floor(tx / 32) * 32 + 16,
+                        Math.floor(ty / 32) * 32 + 16,
+                        type
+                    ));
+                }
+            }
+        }
+
+        // Kilitli altın sandık: Kat 3, 6, 9'da %60 ihtimalle
+        if (this.floor >= 3 && [3, 6, 9].includes(this.floor) && World.spawnPoints.chests.length > 0) {
+            const cp = World.spawnPoints.chests[0];
+            this.chests.push(new Chest(cp.x + 80, cp.y, true));
         }
 
         // Yeni kat görevi ata
@@ -911,6 +942,7 @@ const GameEngine = {
         if (type.startsWith('staff_'))    return `item_sword_${rar}`;
         if (type.startsWith('shield_'))   return `item_armor_${rar}`;
         if (type === 'potion_big')        return 'item_potion_red';
+        if (type === 'gold_key')          return 'item_gold';
         return `item_${type}`; // gold, potion_red, potion_blue
     },
 
@@ -1354,6 +1386,21 @@ const GameEngine = {
         // 3. Düşmanları Güncelle
         this.enemies.forEach(enemy => enemy.update(this.player, this));
 
+        // 3.5. Tuzakları Güncelle
+        this.traps.forEach(trap => trap.update(this.player, this));
+
+        // Dinamik müzik: yakın düşman varsa savaş moduna geç
+        if (SoundEngine.musicPlaying && this.enemies.length > 0) {
+            const inCombat = this.enemies.some(e => Math.hypot(e.x - this.player.x, e.y - this.player.y) < 220);
+            if (inCombat !== this._lastCombatState) {
+                this._lastCombatState = inCombat;
+                if (SoundEngine.setCombatMode) SoundEngine.setCombatMode(inCombat);
+            }
+        } else if (this._lastCombatState) {
+            this._lastCombatState = false;
+            if (SoundEngine.setCombatMode) SoundEngine.setCombatMode(false);
+        }
+
         // 4. Ganimetleri Güncelle
         this.items.forEach(item => item.update());
 
@@ -1419,6 +1466,9 @@ const GameEngine = {
             SpriteEngine.draw(this.ctx, 'portal1', portalDrawX, portalDrawY, 48, 48);
             this.ctx.restore();
         }
+
+        // Tuzakları Çiz (sandıkların altında görünür)
+        this.traps.forEach(trap => trap.draw(this.ctx, World.camera));
 
         // Sandıkları Çiz
         this.chests.forEach(chest => chest.draw(this.ctx, World.camera));
