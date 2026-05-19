@@ -568,6 +568,9 @@ class Enemy {
         // Saldırı cooldown (knockback sırasında da çalışır)
         this.attackCooldownTimer = 60; // İlk temastan önce 1 sn bekle
         this.attackCooldownMax = 90;   // 1.5 sn aralarla vurur
+        this.stunTimer = 0;      // Kritik vuruş sersemletmesi
+        this.burnedTimer = 0;    // Elemental: yanıyor mu?
+        this.poisonedTimer = 0;  // Elemental: zehirleniyor mu?
 
         // Animasyon karesi
         this.animTimer = 0;
@@ -627,6 +630,11 @@ class Enemy {
     update(player, game) {
         // Saldırı cooldown'ı her zaman say (knockback sırasında da!)
         if (this.attackCooldownTimer > 0) this.attackCooldownTimer--;
+        // Elemental debuff sayaçları
+        if (this.burnedTimer > 0) this.burnedTimer--;
+        if (this.poisonedTimer > 0) this.poisonedTimer--;
+        // Sersemletme: stun aktifken hareket ve saldırı yapamaz
+        if (this.stunTimer > 0) { this.stunTimer--; return; }
 
         // Oyuncuya olan mesafeyi hesapla
         const dx = player.x - this.x;
@@ -715,14 +723,30 @@ class Enemy {
         }
     }
 
-    takeDamage(amount, knockbackAngle, game) {
+    takeDamage(amount, knockbackAngle, game, knockbackMult = 1) {
         this.hp -= amount;
         this.hitFlashTimer = 10; // 10 kare kırmızı kal
 
-        // Geri savurma kuvveti
-        const force = 8;
+        // Geri savurma kuvveti (knockbackMult: kritik veya ağır silah için artırılır)
+        const force = 8 * knockbackMult;
         this.knockbackVx = Math.cos(knockbackAngle) * force;
         this.knockbackVy = Math.sin(knockbackAngle) * force;
+
+        // Elemental Reaksiyon: yanıyor + zehirleniyor = PATLAMA (alan hasarı)
+        if (this.burnedTimer > 0 && this.poisonedTimer > 0) {
+            this.burnedTimer = 0; this.poisonedTimer = 0;
+            const explodeDmg = Math.floor(amount * 1.5);
+            game.enemies.forEach(e => {
+                const dist = Math.hypot(e.x - this.x, e.y - this.y);
+                if (e !== this && dist < 96) e.takeDamage(explodeDmg, Math.atan2(e.y - this.y, e.x - this.x), game);
+            });
+            game.triggerScreenShake(6);
+            game.addLog(`💥 ELEMENTAL PATLAMA! ${explodeDmg} alan hasarı!`, "death");
+            for (let p = 0; p < 16; p++) {
+                game.particles.push(new Particle(this.x, this.y, '#ff8c00',
+                    (Math.random()-0.5)*8, (Math.random()-0.5)*8, Math.random()*5+3, 30));
+            }
+        }
 
         // Vurma sesi
         SoundEngine.playHit();
@@ -874,6 +898,8 @@ class Player {
         this.hp = 100;
         this.gold = 0;
         this.hasBarter = false; // Pazarlıkçı yeteneği aktif mi?
+        this.comboCount = 0;   // Kombo sayacı
+        this.comboTimer = 0;   // Kombo süre sayacı (sıfırlanırsa kombo kesilir)
 
         // Envanter & 8 Adet RPG Ekipman Slotu
         this.inventory = [];
@@ -1006,13 +1032,15 @@ class Player {
             }
         }
         let baseSpd = this.stats.spd + bonus;
-        if (this.speedBuffTimer > 0) {
-            baseSpd *= 1.35; // Hız potu %35 ekstra hız
+        // Silah ağırlık fiziği: hafif silahlar hızlandırır, ağır yavaşlatır
+        const wpn = this.equipment && this.equipment.weapon;
+        if (wpn) {
+            if (wpn.type && (wpn.type.includes('dagger') || wpn.type.includes('bow'))) baseSpd += 0.15;
+            if (wpn.type && wpn.type.includes('sword')) baseSpd -= 0.15;
         }
-        if (this.slowTimer > 0) {
-            baseSpd *= 0.6; // Yavaşlatma debuff %40 hız azaltır
-        }
-        return baseSpd;
+        if (this.speedBuffTimer > 0) baseSpd *= 1.35;
+        if (this.slowTimer > 0) baseSpd *= 0.6;
+        return Math.max(0.5, baseSpd);
     }
 
     update(keys, mouse, game) {
@@ -1025,6 +1053,8 @@ class Player {
         // Yetenek bekleme sürelerini azalt
         if (this.qCooldown > 0) this.qCooldown--;
         if (this.wCooldown > 0) this.wCooldown--;
+        // Kombo sayacı: 3 sn içinde vurmazsak kombo sıfırlanır
+        if (this.comboTimer > 0) { this.comboTimer--; if (this.comboTimer === 0) this.comboCount = 0; }
 
         // --- DEBUFF SAYAÇLARI ---
         if (this.burnTimer > 0) {
@@ -1279,37 +1309,60 @@ class Player {
                 while (diff > Math.PI) diff -= Math.PI * 2;
 
                 if (Math.abs(diff) < arcWidth / 2) {
-                    // Darbe vurduk! Hasar hesapla
-                    let damage = Math.floor(this.getTotalAtk() * (this.rapidAttackActive ? 0.7 : 1));
+                    // Kombo çarpanı: her vuruş %2 hasar ekler
+                    const comboDmgMult = 1 + Math.min(this.comboCount, 20) * 0.02;
+                    let damage = Math.floor(this.getTotalAtk() * (this.rapidAttackActive ? 0.7 : 1) * comboDmgMult);
                     let isCrit = false;
 
-                    // Kritik vuruş kontrolü
+                    // Silah ağırlık fiziği: ağır silah (sword) knockback 2.5x
+                    const wpn = this.equipment && this.equipment.weapon;
+                    const isHeavy = wpn && wpn.type && wpn.type.includes('sword');
+                    const kbMult = isHeavy ? 2.5 : 1;
+
                     if (Math.random() * 100 < this.stats.crit) {
                         damage *= 2;
                         isCrit = true;
-                        
-                        // Kritik vuruşta ekran sallanması (Screen Shake)
                         game.triggerScreenShake(8);
                     }
 
-                    // Düşmana hasar ver ve geri savur (knockback açısı kılıç savurma açısıdır)
-                    enemy.takeDamage(damage, this.attackAngle, game);
+                    // Düşmana hasar ver (knockback çarpanı dahil)
+                    enemy.takeDamage(damage, this.attackAngle, game, isCrit ? kbMult * 3 : kbMult);
 
-                    // Ekranda hasar yazısı fırlat
+                    // Kritik sersemletme: 0.7sn (42 kare) stun
+                    if (isCrit) {
+                        enemy.stunTimer = 42;
+                    }
+
+                    // Elemental: oyuncunun zehiri varsa düşman zehirlenir
+                    if (this.poisonTimer > 0) {
+                        enemy.poisonedTimer = 180;
+                    }
+                    // Elemental: oyuncunun yanması varsa düşman yanar
+                    if (this.burnTimer > 0) {
+                        enemy.burnedTimer = 180;
+                    }
+
+                    // Kombo artır
+                    this.comboCount++;
+                    this.comboTimer = 180; // 3 sn içinde tekrar vurulmazsa sıfırlanır
+                    // Kombo milestone: 5'in katlarında ekranda göster
+                    if (this.comboCount > 0 && this.comboCount % 5 === 0) {
+                        game.textParticles.push(new TextParticle(
+                            this.x, this.y - 35,
+                            `COMBO x${this.comboCount}!`,
+                            this.comboCount >= 20 ? '#ff00ff' : this.comboCount >= 10 ? 'var(--neon-gold)' : 'var(--neon-cyan)',
+                            "11px", true
+                        ));
+                    }
+
                     const fontColor = isCrit ? 'var(--neon-gold)' : '#ffffff';
                     const fontText = isCrit ? `${damage}! CRIT` : `${damage}`;
-                    game.textParticles.push(new TextParticle(
-                        enemy.x, enemy.y - 15,
-                        fontText,
-                        fontColor,
-                        isCrit ? "12px" : "9px",
-                        isCrit
-                    ));
-                    
+                    game.textParticles.push(new TextParticle(enemy.x, enemy.y - 15, fontText, fontColor, isCrit ? "12px" : "9px", isCrit));
+
                     if (isCrit) {
-                        game.addLog(`KRİTİK VURUŞ! ${enemy.name}'a ${damage} hasar verdin!`, "player-hit");
+                        game.addLog(`KRİTİK VURUŞ! ${enemy.name}'a ${damage} hasar verdin! (SERSEM)`, "player-hit");
                     } else {
-                        game.addLog(`${enemy.name}'a ${damage} hasar verdin.`, "player-hit");
+                        game.addLog(`${enemy.name}'a ${damage} hasar verdin.${this.comboCount > 1 ? ` [x${this.comboCount} COMBO]` : ''}`, "player-hit");
                     }
                 }
             }
@@ -1326,8 +1379,11 @@ class Player {
 
         this.hp -= finalDamage;
         this.invincibleTimer = 35;
-        this.regenTimer = 0; // Hasar alınca regen sıfırlanır
+        this.regenTimer = 0;
         this.regenTickTimer = 0;
+        // Hasar alınca kombo sıfırla
+        this.comboCount = 0;
+        this.comboTimer = 0;
 
         // Lifesteal: %15 hasarın geri dönüşü
         if (this.hasLifesteal) {
@@ -1644,17 +1700,32 @@ class Player {
         this.rapidAttackTimer = 300; // 5 saniye (60fps'te 300 kare)
         this.qCooldown = this.qMaxCooldown; // 12 saniye cooldown
 
-        SoundEngine.playDash(); // Hızlı rüzgar sesi
+        SoundEngine.playDash();
 
-        game.textParticles.push(new TextParticle(
-            this.x, this.y - 20,
-            "HIZLI HÜCUM!",
-            "var(--neon-gold)",
-            "11px",
-            true
-        ));
+        // Q DASH-SALDIRI: etkinleşince yolundaki tüm düşmanlara hasar ver
+        const dashAtk = Math.floor(this.getTotalAtk() * 1.5);
+        const dashAngle = this.attackAngle || 0;
+        game.enemies.forEach(enemy => {
+            if (enemy instanceof Boss) return; // Boss bu etkiye muaf
+            const dist = Math.hypot(enemy.x - this.x, enemy.y - this.y);
+            const ang = Math.atan2(enemy.y - this.y, enemy.x - this.x);
+            const angDiff = Math.abs(ang - dashAngle);
+            // Önündeki 160px mesafedeki, 90° açı içindeki düşmanlara vur
+            if (dist < 160 && angDiff < Math.PI / 2) {
+                enemy.takeDamage(dashAtk, dashAngle, game);
+                // Kesik izi partikülü
+                for (let p = 0; p < 5; p++) {
+                    game.particles.push(new Particle(
+                        enemy.x + (Math.random()-0.5)*20, enemy.y + (Math.random()-0.5)*20,
+                        'var(--neon-gold)', (Math.random()-0.5)*4, (Math.random()-0.5)*4,
+                        Math.random()*4+2, 20
+                    ));
+                }
+            }
+        });
 
-        game.addLog("AKTİF YETENEK (Q): Hızlı Hücum etkinleştirildi! 5 saniye boyunca Saldırı Hızı +100%, Hasar -30%.", "loot");
+        game.textParticles.push(new TextParticle(this.x, this.y - 20, "HIZLI HÜCUM!", "var(--neon-gold)", "11px", true));
+        game.addLog("AKTİF YETENEK (Q): Hızlı Hücum + Dash Saldırı! 5sn Saldırı Hızı +100%, Hasar -30%.", "loot");
         
         // Işık saçan neon partiküller
         for (let p = 0; p < 15; p++) {

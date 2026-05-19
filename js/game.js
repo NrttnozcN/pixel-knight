@@ -1120,6 +1120,21 @@ const GameEngine = {
         // Sarsıntı matrisini kapat
         this.ctx.restore();
 
+        // Kombo sayacı canvas üzerinde göster (sağ üst)
+        if (this.state === 'playing' && this.player && this.player.comboCount >= 3) {
+            const cx = this.canvas.width - 10;
+            const cy = 40;
+            const comboColor = this.player.comboCount >= 20 ? '#ff00ff' : this.player.comboCount >= 10 ? '#ffd700' : '#00f0ff';
+            this.ctx.save();
+            this.ctx.textAlign = 'right';
+            this.ctx.font = "bold 14px 'Press Start 2P'";
+            this.ctx.strokeStyle = '#000'; this.ctx.lineWidth = 4;
+            this.ctx.strokeText(`COMBO x${this.player.comboCount}`, cx, cy);
+            this.ctx.fillStyle = comboColor;
+            this.ctx.fillText(`COMBO x${this.player.comboCount}`, cx, cy);
+            this.ctx.restore();
+        }
+
         // 3. Ekrana ek görsel HUD uyarıları çizdir (Portal Aktifse canvas ortasında yanıp sönen uyarı)
         if (this.state === 'playing' && World.portal.active) {
             this.ctx.save();
