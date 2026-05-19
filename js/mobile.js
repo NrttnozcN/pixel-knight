@@ -194,4 +194,26 @@ window.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => MobileControls.init(), 150);
 });
 
+/*
+ * iOS Safari landscape fix: orientationchange sonrası viewport boyutu
+ * gecikmeli güncellenir. 300ms bekleyip tekrar tetikle.
+ */
+function _iosSafariViewportFix() {
+    const wrapper = document.querySelector('.dashboard-wrapper');
+    if (!wrapper) return;
+    // fixed ile zaten viewport'a sabitlendi; ama resize event'ini
+    // canvas'ın kendisi için tetiklememiz gerekebilir
+    if (window.GameEngine && window.GameEngine.canvas) {
+        // Canvas boyutu sabit (640×480); InputManager scale'i otomatik hesaplar
+    }
+    // Body'nin scroll pozisyonunu sıfırla (Safari bazen kayarla)
+    window.scrollTo(0, 0);
+    document.body.scrollTop = 0;
+}
+
+window.addEventListener('orientationchange', () => {
+    setTimeout(_iosSafariViewportFix, 300);
+});
+window.addEventListener('resize', _iosSafariViewportFix);
+
 window.MobileControls = MobileControls;
