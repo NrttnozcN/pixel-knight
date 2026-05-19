@@ -498,7 +498,9 @@ class Chest {
             }
 
             // Ganimeti sandığın tam merkezinden hafif yukarı fırlatarak oluştur
-            const lootItem = new Item(this.x, this.y - 10, type, type === 'gold' ? Math.floor(Math.random() * 8) + 5 : 1);
+            const floorMult = 1 + (window.GameEngine ? window.GameEngine.floor - 1 : 0) * 0.1;
+            const chestGold = Math.floor((Math.random() * 10 + 15) * floorMult); // 15-25 base
+            const lootItem = new Item(this.x, this.y - 10, type, type === 'gold' ? chestGold : 1);
             game.items.push(lootItem);
         }
 
@@ -589,7 +591,7 @@ class Enemy {
             this.speed = 0.9;
             this.atk = Math.floor(5 * floorMultiplier);
             this.xpReward = Math.floor(10 * floorMultiplier);
-            this.goldReward = Math.floor((Math.random() * 5 + 2) * floorMultiplier);
+            this.goldReward = Math.floor((Math.random() * 7 + 8) * floorMultiplier);  // 8-15
             this.debuffType = 'slow'; // Yeşil balçık → yavaşlatır
         } else if (this.type === 'slime_fire') {
             this.name = 'Lav Balçığı';
@@ -598,7 +600,7 @@ class Enemy {
             this.speed = 1.2;
             this.atk = Math.floor(12 * floorMultiplier);
             this.xpReward = Math.floor(20 * floorMultiplier);
-            this.goldReward = Math.floor((Math.random() * 8 + 4) * floorMultiplier);
+            this.goldReward = Math.floor((Math.random() * 10 + 12) * floorMultiplier); // 12-22
             this.debuffType = 'burn'; // Kırmızı balçık → yakar + regen engeller
         } else if (this.type === 'slime_shadow') {
             this.name = 'Karanlık Balçık';
@@ -607,7 +609,7 @@ class Enemy {
             this.speed = 1.5;
             this.atk = Math.floor(18 * floorMultiplier);
             this.xpReward = Math.floor(35 * floorMultiplier);
-            this.goldReward = Math.floor((Math.random() * 12 + 6) * floorMultiplier);
+            this.goldReward = Math.floor((Math.random() * 15 + 15) * floorMultiplier); // 15-30
             this.debuffType = 'poison'; // Mor balçık → zehirler + regen engeller
         } else if (this.type === 'skeleton') {
             this.name = 'İskelet Savaşçı';
@@ -616,7 +618,7 @@ class Enemy {
             this.speed = 1.1;
             this.atk = Math.floor(10 * floorMultiplier);
             this.xpReward = Math.floor(25 * floorMultiplier);
-            this.goldReward = Math.floor((Math.random() * 10 + 5) * floorMultiplier);
+            this.goldReward = Math.floor((Math.random() * 10 + 10) * floorMultiplier); // 10-20
             this.width = 48;
             this.height = 48;
         }
@@ -773,24 +775,27 @@ class Enemy {
         // Oyuncuya TP (XP) ver
         game.player.gainXp(this.xpReward, game);
 
-        // Yere Altın Para Düşür
-        const goldVal = this.goldReward;
+        // Yere Altın Para Düşür (Luck statı çarpan olarak artırır)
+        const luckMult = 1 + ((game.player && game.player.stats.luck) || 0) / 100;
+        const goldVal = Math.floor(this.goldReward * luckMult);
         if (goldVal > 0) {
             game.items.push(new Item(this.x, this.y, 'gold', goldVal));
         }
 
-        // Düşman ölüm ganimetleri
+        // Düşman ölüm ganimetleri (Luck: efsanevi şansını artırır)
+        const luckBonus = ((game.player && game.player.stats.luck) || 0);
+        const legendaryChance = 0.05 + luckBonus / 1000;
+        const rareChance = 0.30 + luckBonus / 500;
         const roll = Math.random();
         if (roll < 0.12) {
             game.items.push(new Item(this.x, this.y, 'potion_red'));
         } else if (roll < 0.16) {
             game.items.push(new Item(this.x, this.y, 'potion_blue'));
         } else if (roll < 0.28) {
-            // Tüm ekipman kategorilerinden ganimet düşür (yeni tipler dahil)
             const gearCategories = ['sword', 'bow', 'armor', 'helmet', 'necklace', 'earrings', 'ring', 'gloves', 'boots', 'dagger', 'staff', 'shield'];
             const chosenCategory = gearCategories[Math.floor(Math.random() * gearCategories.length)];
             const rarityRoll = Math.random();
-            const rarity = rarityRoll < 0.05 ? 'legendary' : rarityRoll < 0.30 ? 'rare' : 'common';
+            const rarity = rarityRoll < legendaryChance ? 'legendary' : rarityRoll < rareChance ? 'rare' : 'common';
             game.items.push(new Item(this.x, this.y, `${chosenCategory}_${rarity}`));
         }
 
@@ -863,10 +868,12 @@ class Player {
             atk: 10,
             def: 2,
             spd: 2.5,
-            crit: 5 // % Kritik vuruş şansı
+            crit: 5,  // % Kritik vuruş şansı
+            luck: 5   // % Şans statı (altın & efsanevi drop şansını artırır)
         };
         this.hp = 100;
         this.gold = 0;
+        this.hasBarter = false; // Pazarlıkçı yeteneği aktif mi?
 
         // Envanter & 8 Adet RPG Ekipman Slotu
         this.inventory = [];

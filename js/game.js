@@ -164,6 +164,13 @@ const GameEngine = {
         // Kamera sarsıntısıyla derinlik hissiyatı ver
         this.triggerScreenShake(15);
 
+        // Faiz sistemi: Her 100 altın için %5 faiz
+        if (this.player && this.player.gold >= 100) {
+            const interest = Math.floor(this.player.gold / 100) * 5;
+            this.player.gold += interest;
+            this.addLog(`💰 Yatırımlarından +${interest} altın faiz geliri kazandın!`, "loot");
+        }
+
         this.addLog(`Zindanın daha karanlık kısımlarına geçtin... Kat: ${this.floor}`, "level");
         
         this.updateUI();
@@ -429,6 +436,22 @@ const GameEngine = {
                 icon: 'fa-person-running',
                 rarity: 'epic',
                 action: () => { this.player.dashCooldown = 20; }
+            },
+            {
+                id: 'barter',
+                title: 'PAZARLIKÇı',
+                desc: 'Satıcıda tüm fiyatlar %20 ucuzlar. Sattığın eşyalardan %20 fazla altın kazanırsın.',
+                icon: 'fa-handshake',
+                rarity: 'rare',
+                action: () => { this.player.hasBarter = true; }
+            },
+            {
+                id: 'luck',
+                title: 'ŞANS TANRISI',
+                desc: 'Şans statını +10 artırır. Düşman altın dropları ve efsanevi eşya şansı yükselir.',
+                icon: 'fa-clover',
+                rarity: 'rare',
+                action: () => { this.player.stats.luck += 10; }
             }
         ];
 
@@ -515,10 +538,10 @@ const GameEngine = {
         // 3. Karakter Nitelikleri Değerleri
         document.getElementById('stat-atk').innerText = this.player.getTotalAtk();
         document.getElementById('stat-def').innerText = this.player.getTotalDef();
-        
-        // Hızı virgülden sonra tek haneli göster (e.g. 2.5)
         document.getElementById('stat-spd').innerText = this.player.getTotalSpd().toFixed(1);
         document.getElementById('stat-crit').innerText = `${this.player.stats.crit}%`;
+        const luckEl = document.getElementById('stat-luck');
+        if (luckEl) luckEl.innerText = `${this.player.stats.luck}%`;
 
         // 4. Kuşanmış Ekipman Slotlarını Çiz
         this.drawEquipmentSlot('helmet', this.player.equipment.helmet);
@@ -808,11 +831,12 @@ const GameEngine = {
         if (tooltip) tooltip.style.display = 'none';
     },
 
-    // Eşya satış fiyatını döndür
+    // Eşya satış fiyatını döndür (Pazarlıkçı: +%20)
     getSellPrice(item) {
         if (item.type === 'potion_red' || item.type === 'potion_blue') return 10;
         const prices = { common: 8, rare: 22, legendary: 65 };
-        return prices[item.rarity] || 5;
+        const base = prices[item.rarity] || 5;
+        return this.player && this.player.hasBarter ? Math.floor(base * 1.2) : base;
     },
 
     // Envanterden eşya sat
@@ -1182,9 +1206,9 @@ const GameEngine = {
 
             // Fiyatı belirle
             let price = 25;
-            if (rarity === 'common') price = Math.floor(Math.random() * 10) + 20; // 20-30
-            else if (rarity === 'rare') price = Math.floor(Math.random() * 20) + 45; // 45-65
-            else if (rarity === 'legendary') price = Math.floor(Math.random() * 30) + 95; // 95-125
+            if (rarity === 'common') price = Math.floor(Math.random() * 10) + 25; // 25-35
+            else if (rarity === 'rare') price = Math.floor(Math.random() * 20) + 50; // 50-70
+            else if (rarity === 'legendary') price = Math.floor(Math.random() * 40) + 120; // 120-160
 
             this.shopItems.push({
                 type: `${category}_${rarity}`,
@@ -1242,11 +1266,14 @@ const GameEngine = {
             if (item.sold) {
                 actionDiv.innerHTML = `<button class="shop-buy-btn disabled" disabled>TÜKENDİ</button>`;
             } else {
+                // Pazarlıkçı: fiyatı %20 indir
+                const displayPrice = this.player.hasBarter ? Math.floor(item.price * 0.8) : item.price;
+                item._displayPrice = displayPrice; // buyShopItem'de kullanılır
                 const buyBtn = document.createElement('button');
-                buyBtn.className = `shop-buy-btn ${this.player.gold >= item.price ? '' : 'poor'}`;
+                buyBtn.className = `shop-buy-btn ${this.player.gold >= displayPrice ? '' : 'poor'}`;
                 buyBtn.innerHTML = `
                     <span>SATIN AL</span>
-                    <span class="shop-price-tag"><i class="fa-solid fa-coins gold-color"></i> ${item.price}g</span>
+                    <span class="shop-price-tag"><i class="fa-solid fa-coins gold-color"></i> ${displayPrice}g${this.player.hasBarter ? ' <span style="color:#aaffaa;font-size:8px">(%20 İND.)</span>' : ''}</span>
                 `;
 
                 buyBtn.addEventListener('click', () => {
@@ -1268,8 +1295,11 @@ const GameEngine = {
         const item = this.shopItems[index];
         if (!item || item.sold) return;
 
+        // Pazarlıkçı indirimi uygula
+        const actualPrice = item._displayPrice !== undefined ? item._displayPrice : item.price;
+
         // Altın yeterli mi?
-        if (this.player.gold < item.price) {
+        if (this.player.gold < actualPrice) {
             SoundEngine.playHit(); // Hata sesi
             this.addLog("Yetersiz altın! Canavarlardan altın toplayıp geri gel.", "system");
             
@@ -1291,8 +1321,8 @@ const GameEngine = {
             return;
         }
 
-        // Altını düş, eşyayı satıldı işaretle ve envantere ekle
-        this.player.gold -= item.price;
+        // Altını düş (pazarlıkçı indirimi uygulanmış fiyatla), eşyayı satıldı işaretle ve envantere ekle
+        this.player.gold -= actualPrice;
         item.sold = true;
 
         // Envantere yeni Item sınıfı nesnesi ekle
