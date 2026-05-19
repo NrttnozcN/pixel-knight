@@ -196,21 +196,22 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 /*
- * iOS Safari tam ekran düzenleyici.
- * CSS media query'lere güvenmek yerine window.innerWidth/Height ile
- * gerçek viewport piksel değerlerini okuyup inline style olarak set eder.
- * Bu yöntem iOS Safari'nin toolbar/notch hesabından bağımsız çalışır.
+ * iOS Safari tam ekran — en güvenilir yöntem:
+ * body'nin kendisini position:fixed yaparak Safari'nin
+ * toolbar/vh hesaplamalarını tamamen atlatırız.
+ * wrapper içinde normal akışla tüm elemanlar body'yi doldurur.
  */
 function _applyMobileLayout() {
     const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
     if (!isTouch) return;
 
+    /* innerWidth/Height DOM değişikliğinden önce oku */
     const w = window.innerWidth;
     const h = window.innerHeight;
     const isLandscape = w > h;
 
-    const set = (el, prop, val) => el && el.style.setProperty(prop, val, 'important');
-    const reset = (el) => { if (el) el.removeAttribute('style'); };
+    const s  = (el, p, v) => el && el.style.setProperty(p, v, 'important');
+    const rs = (el)        => { if (el) el.removeAttribute('style'); };
 
     const wrapper    = document.querySelector('.dashboard-wrapper');
     const header     = document.querySelector('.game-header');
@@ -221,48 +222,65 @@ function _applyMobileLayout() {
     const canvasWrap = document.querySelector('.canvas-wrapper');
 
     if (isLandscape) {
-        // Wrapper: viewport'a tam sabit
-        set(wrapper, 'position',      'fixed');
-        set(wrapper, 'top',           '0');
-        set(wrapper, 'left',          '0');
-        set(wrapper, 'width',         w + 'px');
-        set(wrapper, 'height',        h + 'px');
-        set(wrapper, 'max-width',     'none');
-        set(wrapper, 'max-height',    'none');
-        set(wrapper, 'border-radius', '0');
-        set(wrapper, 'border',        'none');
-        set(wrapper, 'overflow',      'hidden');
-        set(wrapper, 'padding',       '0');
+        /* 1. BODY'yi tam ekran yap (iOS Safari en güvenli yaklaşım) */
+        s(document.documentElement, 'overflow', 'hidden');
+        s(document.documentElement, 'height',   '100%');
+        s(document.body, 'position', 'fixed');
+        s(document.body, 'top',      '0');
+        s(document.body, 'left',     '0');
+        s(document.body, 'right',    '0');
+        s(document.body, 'bottom',   '0');
+        s(document.body, 'overflow', 'hidden');
+        s(document.body, 'padding',  '0');
+        s(document.body, 'margin',   '0');
+        s(document.body, 'width',    '100%');
+        s(document.body, 'height',   '100%');
 
-        // Chrome'u gizle
-        set(header,    'display', 'none');
-        set(bottomHUD, 'display', 'none');
-        set(sidebar,   'display', 'none');
+        /* 2. Wrapper body'yi doldursun */
+        s(wrapper, 'position',      'relative');
+        s(wrapper, 'width',         '100%');
+        s(wrapper, 'height',        '100%');
+        s(wrapper, 'max-width',     'none');
+        s(wrapper, 'max-height',    'none');
+        s(wrapper, 'border-radius', '0');
+        s(wrapper, 'border',        'none');
+        s(wrapper, 'overflow',      'hidden');
+        s(wrapper, 'padding',       '0');
 
-        // İç kapsayıcılar tam doldur
-        set(dashBody, 'height',   h + 'px');
-        set(dashBody, 'width',    w + 'px');
-        set(dashBody, 'overflow', 'hidden');
+        /* 3. Gereksiz UI elemanlarını gizle */
+        s(header,    'display', 'none');
+        s(bottomHUD, 'display', 'none');
+        s(sidebar,   'display', 'none');
 
-        set(viewport, 'width',    w + 'px');
-        set(viewport, 'height',   h + 'px');
-        set(viewport, 'padding',  '0');
-        set(viewport, 'gap',      '0');
-        set(viewport, 'overflow', 'hidden');
+        /* 4. Dashboard body */
+        s(dashBody, 'height',   '100%');
+        s(dashBody, 'width',    '100%');
+        s(dashBody, 'overflow', 'hidden');
+        s(dashBody, 'min-height', '0');
 
-        set(canvasWrap, 'width',         w + 'px');
-        set(canvasWrap, 'height',        h + 'px');
-        set(canvasWrap, 'border',        'none');
-        set(canvasWrap, 'border-radius', '0');
-        set(canvasWrap, 'min-height',    '0');
+        /* 5. Viewport */
+        s(viewport, 'flex',     '1');
+        s(viewport, 'width',    '100%');
+        s(viewport, 'height',   '100%');
+        s(viewport, 'padding',  '0');
+        s(viewport, 'gap',      '0');
+        s(viewport, 'overflow', 'hidden');
 
-        // Scroll sıfırla (Safari bazen yukarı kayar)
+        /* 6. Canvas sarmalayıcı */
+        s(canvasWrap, 'flex',          '1');
+        s(canvasWrap, 'width',         '100%');
+        s(canvasWrap, 'height',        '100%');
+        s(canvasWrap, 'border',        'none');
+        s(canvasWrap, 'border-radius', '0');
+        s(canvasWrap, 'min-height',    '0');
+
         window.scrollTo(0, 0);
 
     } else {
-        // Dikey: tüm inline stilleri kaldır, CSS yönetsin
-        [wrapper, header, bottomHUD, sidebar, dashBody, viewport, canvasWrap]
-            .forEach(reset);
+        /* Dikey: inline stilleri temizle, CSS devralır */
+        rs(document.documentElement);
+        [document.body, wrapper, header, bottomHUD, sidebar, dashBody, viewport, canvasWrap]
+            .forEach(rs);
     }
 }
 

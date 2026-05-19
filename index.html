@@ -446,6 +446,46 @@
         <div class="tooltip-action-hint">Kuşanmak veya kullanmak için tıkla</div>
     </div>
 
+    <!-- Inline landscape fix: cache'ten etkilenmez, DOM hazır olmadan önce çalışır -->
+    <script>
+    (function(){
+        function _lsFix(){
+            var isT=('ontouchstart' in window)||navigator.maxTouchPoints>0;
+            if(!isT) return;
+            var w=window.innerWidth,h=window.innerHeight;
+            if(w<=h) return;
+            var S=function(el,p,v){if(el)el.style.setProperty(p,v,'important');};
+            S(document.documentElement,'overflow','hidden');
+            S(document.documentElement,'height','100%');
+            S(document.body,'position','fixed');
+            S(document.body,'top','0'); S(document.body,'left','0');
+            S(document.body,'right','0'); S(document.body,'bottom','0');
+            S(document.body,'overflow','hidden');
+            S(document.body,'margin','0'); S(document.body,'padding','0');
+            S(document.body,'width','100%'); S(document.body,'height','100%');
+            var wr=document.querySelector('.dashboard-wrapper');
+            if(wr){
+                S(wr,'position','relative'); S(wr,'width','100%'); S(wr,'height','100%');
+                S(wr,'max-width','none'); S(wr,'max-height','none');
+                S(wr,'border-radius','0'); S(wr,'border','none');
+                S(wr,'overflow','hidden'); S(wr,'padding','0');
+            }
+            ['game-header','horizontal-dashboard-bottom','sidebar-combat-log-panel'].forEach(function(cls){
+                var el=document.querySelector('.'+cls); if(el) S(el,'display','none');
+            });
+            var db=document.querySelector('.dashboard-body');
+            if(db){S(db,'height','100%');S(db,'width','100%');S(db,'overflow','hidden');}
+            var vp=document.querySelector('.game-viewport-container');
+            if(vp){S(vp,'flex','1');S(vp,'width','100%');S(vp,'height','100%');S(vp,'padding','0');S(vp,'gap','0');S(vp,'overflow','hidden');}
+            var cw=document.querySelector('.canvas-wrapper');
+            if(cw){S(cw,'flex','1');S(cw,'width','100%');S(cw,'height','100%');S(cw,'border','none');S(cw,'border-radius','0');S(cw,'min-height','0');}
+            window.scrollTo(0,0);
+        }
+        document.addEventListener('DOMContentLoaded',function(){setTimeout(_lsFix,50);});
+        window.addEventListener('orientationchange',function(){setTimeout(_lsFix,400);});
+        window.addEventListener('resize',function(){setTimeout(_lsFix,100);});
+    })();
+    </script>
     <script src="js/sprites.js"></script>
     <script src="js/sound.js"></script>
     <script src="js/world.js"></script>
