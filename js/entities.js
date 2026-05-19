@@ -779,6 +779,13 @@ class Enemy {
         game.enemies = game.enemies.filter(e => e !== this);
         game.addLog(`${this.name} yenildi! +${this.xpReward} TP.`, "enemy-hit");
         game.killsCount++;
+        // Quest ve achievement takibi
+        if (game._checkQuestProgress) game._checkQuestProgress('kill', { type: this.type });
+        if (this.type && this.type.startsWith('slime')) {
+            const prev = parseInt(localStorage.getItem('pk_slimeKills') || 0);
+            localStorage.setItem('pk_slimeKills', prev + 1);
+        }
+        if (game._checkAchievements) game._checkAchievements();
 
         // Silah uzmanlığı için öldürme sayacı
         if (game.player && game.player.specialization === null) {
@@ -898,8 +905,13 @@ class Player {
         this.hp = 100;
         this.gold = 0;
         this.hasBarter = false; // Pazarlıkçı yeteneği aktif mi?
-        this.comboCount = 0;   // Kombo sayacı
-        this.comboTimer = 0;   // Kombo süre sayacı (sıfırlanırsa kombo kesilir)
+        this.comboCount = 0;
+        this.comboTimer = 0;
+        // Kutsal sütun buff sayaçları (30sn = 1800 frame)
+        this.shrineAtkTimer = 0;
+        this.shrineSpdTimer = 0;
+        this.shrineRegenTimer = 0;
+        this.shrineRegenTickTimer = 0;
 
         // Envanter & 8 Adet RPG Ekipman Slotu
         this.inventory = [];
@@ -986,16 +998,14 @@ class Player {
         };
     }
 
-    // Ekipman hasarları dahil toplam saldırı gücünü döner
     getTotalAtk() {
         let bonus = 0;
         for (const slot in this.equipment) {
             const item = this.equipment[slot];
-            if (item && item.stats && item.stats.atk) {
-                bonus += item.stats.atk;
-            }
+            if (item && item.stats && item.stats.atk) bonus += item.stats.atk;
         }
-        return this.stats.atk + bonus;
+        const base = this.stats.atk + bonus;
+        return this.shrineAtkTimer > 0 ? Math.floor(base * 1.5) : base;
     }
 
     // Ekipman defansı dahil toplam defansı döner
@@ -1032,12 +1042,12 @@ class Player {
             }
         }
         let baseSpd = this.stats.spd + bonus;
-        // Silah ağırlık fiziği: hafif silahlar hızlandırır, ağır yavaşlatır
         const wpn = this.equipment && this.equipment.weapon;
         if (wpn) {
             if (wpn.type && (wpn.type.includes('dagger') || wpn.type.includes('bow'))) baseSpd += 0.15;
             if (wpn.type && wpn.type.includes('sword')) baseSpd -= 0.15;
         }
+        if (this.shrineSpdTimer > 0) baseSpd += 0.5;
         if (this.speedBuffTimer > 0) baseSpd *= 1.35;
         if (this.slowTimer > 0) baseSpd *= 0.6;
         return Math.max(0.5, baseSpd);
@@ -1053,8 +1063,18 @@ class Player {
         // Yetenek bekleme sürelerini azalt
         if (this.qCooldown > 0) this.qCooldown--;
         if (this.wCooldown > 0) this.wCooldown--;
-        // Kombo sayacı: 3 sn içinde vurmazsak kombo sıfırlanır
         if (this.comboTimer > 0) { this.comboTimer--; if (this.comboTimer === 0) this.comboCount = 0; }
+        // Shrine buff sayaçları
+        if (this.shrineAtkTimer > 0) this.shrineAtkTimer--;
+        if (this.shrineSpdTimer > 0) this.shrineSpdTimer--;
+        if (this.shrineRegenTimer > 0) {
+            this.shrineRegenTimer--;
+            this.shrineRegenTickTimer++;
+            if (this.shrineRegenTickTimer >= 30) { // Her 0.5sn +2 HP
+                this.shrineRegenTickTimer = 0;
+                this.hp = Math.min(this.getMaxHp(), this.hp + 2);
+            }
+        } else { this.shrineRegenTickTimer = 0; }
 
         // --- DEBUFF SAYAÇLARI ---
         if (this.burnTimer > 0) {
@@ -1381,9 +1401,9 @@ class Player {
         this.invincibleTimer = 35;
         this.regenTimer = 0;
         this.regenTickTimer = 0;
-        // Hasar alınca kombo sıfırla
         this.comboCount = 0;
         this.comboTimer = 0;
+        if (game && game.playerHitThisFloor !== undefined) game.playerHitThisFloor = true;
 
         // Lifesteal: %15 hasarın geri dönüşü
         if (this.hasLifesteal) {
@@ -1585,6 +1605,10 @@ class Player {
     useItem(itemIndex, game) {
         const item = this.inventory[itemIndex];
         if (!item) return;
+
+        // Quest: iksir kullanım takibi
+        const isPotion = ['potion_red','potion_blue','potion_big'].includes(item.type);
+        if (isPotion && game._checkQuestProgress) game._checkQuestProgress('potion_used', null);
 
         // 1. SAĞLIK İKSİRİ KULLANILDI
         if (item.type === 'potion_red') {
@@ -1917,6 +1941,70 @@ class Player {
             ctx.beginPath();
             ctx.arc(this.x - camera.x + (Math.random() - 0.5) * 20, this.y - camera.y + 18, Math.random() * 3 + 1, 0, Math.PI * 2);
             ctx.fill();
+            ctx.restore();
+        }
+    }
+}
+
+// --- 7b. KUTSAL SÜTUN (SHRINE) ---
+class Shrine {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.width = 32;
+        this.height = 48;
+        this.activated = false;
+        this.interactRange = 44;
+        this.glowTimer = 0;
+        const types = ['atk', 'spd', 'regen'];
+        this.type = types[Math.floor(Math.random() * types.length)];
+    }
+
+    activate(player, game) {
+        if (this.activated) return;
+        this.activated = true;
+        SoundEngine.playChestOpen();
+        if (this.type === 'atk') {
+            player.shrineAtkTimer = 1800;
+            game.addLog("🔱 Kutsal Sütun: +%50 Hasar bonusu 30sn!", "loot");
+            game.textParticles.push(new TextParticle(this.x, this.y - 20, "+%50 HASAR!", "#ff8c00", "9px", true));
+        } else if (this.type === 'spd') {
+            player.shrineSpdTimer = 1800;
+            game.addLog("🔱 Kutsal Sütun: +0.5 Hız bonusu 30sn!", "loot");
+            game.textParticles.push(new TextParticle(this.x, this.y - 20, "+0.5 HIZ!", "#00f0ff", "9px", true));
+        } else {
+            player.shrineRegenTimer = 1800;
+            game.addLog("🔱 Kutsal Sütun: Saniyede +2 HP yenileme 30sn!", "loot");
+            game.textParticles.push(new TextParticle(this.x, this.y - 20, "+2 HP/SN!", "#39ff14", "9px", true));
+        }
+    }
+
+    draw(ctx, camera) {
+        const drawX = this.x - camera.x - this.width / 2;
+        const drawY = this.y - camera.y - this.height;
+        this.glowTimer++;
+        const glow = Math.sin(this.glowTimer / 20) * 0.3 + 0.7;
+        const colors = { atk: '#ff4500', spd: '#00f0ff', regen: '#39ff14' };
+        const col = colors[this.type] || '#ffffff';
+        ctx.save();
+        ctx.globalAlpha = glow;
+        // Sütun gövdesi
+        ctx.fillStyle = this.activated ? '#333' : col;
+        ctx.fillRect(drawX + 8, drawY, 16, this.height);
+        // Tepe kristali
+        if (!this.activated) {
+            ctx.shadowColor = col; ctx.shadowBlur = 12;
+            ctx.fillStyle = col;
+            ctx.fillRect(drawX + 10, drawY - 8, 12, 12);
+        }
+        ctx.restore();
+        // E tuşu ipucu
+        if (!this.activated) {
+            ctx.save();
+            ctx.font = "6px 'Press Start 2P'";
+            ctx.fillStyle = '#fff';
+            ctx.textAlign = 'center';
+            ctx.fillText('[E]', this.x - camera.x, this.y - camera.y - this.height - 6);
             ctx.restore();
         }
     }

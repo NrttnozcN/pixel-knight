@@ -22,7 +22,14 @@ const GameEngine = {
     floor: 1,
     killsCount: 0,
     lives: 3,
-    state: 'start', // 'start', 'playing', 'upgrade', 'gameover', 'respawning'
+    state: 'start',
+    shrines: [],        // Kutsal sütunlar
+    currentQuest: null, // Aktif kat görevi
+    questProgress: 0,
+    questCompleted: false,
+    playerHitThisFloor: false, // "Gölge" görevi için
+    crtEnabled: false,  // CRT filtre aktif mi?
+    achievementNotif: null, // { text, timer }
     
     // Portal animasyonu
     portalFrame: 1,
@@ -75,6 +82,23 @@ const GameEngine = {
             this.startNewGame();
         });
 
+        // CRT filtre toggle
+        document.getElementById('btn-crt').addEventListener('click', () => {
+            this.crtEnabled = !this.crtEnabled;
+            const wrapper = document.querySelector('.canvas-wrapper');
+            if (wrapper) wrapper.classList.toggle('crt-on', this.crtEnabled);
+            const btn = document.getElementById('btn-crt');
+            btn.style.color = this.crtEnabled ? 'var(--neon-cyan)' : '';
+            btn.style.borderColor = this.crtEnabled ? 'var(--neon-cyan)' : '';
+        });
+
+        // Ses seviyesi sürgüsü
+        document.getElementById('slider-vol').addEventListener('input', (e) => {
+            const vol = parseInt(e.target.value) / 100;
+            SoundEngine.init();
+            if (SoundEngine.masterGain) SoundEngine.masterGain.gain.setValueAtTime(vol * 0.3, SoundEngine.ctx.currentTime);
+        });
+
         document.getElementById('btn-close-shop').addEventListener('click', () => {
             this.closeShop();
         });
@@ -100,6 +124,11 @@ const GameEngine = {
         this.floor = 1;
         this.killsCount = 0;
         this.lives = 3;
+        this.shrines = [];
+        this.currentQuest = null;
+        this.questProgress = 0;
+        this.questCompleted = false;
+        this.playerHitThisFloor = false;
         this.enemies = [];
         this.chests = [];
         this.items = [];
@@ -172,12 +201,15 @@ const GameEngine = {
         }
 
         this.addLog(`Zindanın daha karanlık kısımlarına geçtin... Kat: ${this.floor}`, "level");
+        this._checkAchievements();
         
         this.updateUI();
     },
 
     // Harita üstünde canavar ve sandık sınıflarını ayağa kaldır
     spawnMapEntities() {
+        this.shrines = [];
+
         // Sandıkları oluştur
         World.spawnPoints.chests.forEach(pt => {
             this.chests.push(new Chest(pt.x, pt.y));
@@ -187,6 +219,15 @@ const GameEngine = {
         World.spawnPoints.enemies.forEach(pt => {
             this.enemies.push(new Enemy(pt.x, pt.y, pt.type));
         });
+
+        // Kutsal sütunlar: Boss katı hariç %40 ihtimalle 1 sütun
+        if (!World.spawnPoints.boss && Math.random() < 0.40 && World.spawnPoints.enemies.length > 0) {
+            const sp = World.spawnPoints.enemies[Math.floor(Math.random() * World.spawnPoints.enemies.length)];
+            this.shrines.push(new Shrine(sp.x + 64, sp.y + 64));
+        }
+
+        // Yeni kat görevi ata
+        this._assignFloorQuest();
 
         // Portalın hemen solunda Gizemli Seyyar Satıcı oluştur! (Kullanıcı Talebi: Her katta portal kenarında satıcı)
         // Her 5. katta yalnızca efsanevi ve çok nadir eşyalar satan Özel Seyyar Satıcı gelir!
@@ -233,10 +274,19 @@ const GameEngine = {
 
         if (openedAny) return;
 
-        // 2. Çıkış portalına girmeyi dene (Zindandaki tüm canavarlar yenildiyse portal aktiftir!)
+        // 1.6. Shrine etkileşimi
+        this.shrines.forEach(shrine => {
+            if (!shrine.activated) {
+                const sDist = Math.hypot(this.player.x - shrine.x, this.player.y - shrine.y);
+                if (sDist < shrine.interactRange) shrine.activate(this.player, this);
+            }
+        });
+
+        // 2. Çıkış portalına girmeyi dene
         const portalDist = Math.hypot(this.player.x - World.portal.x, this.player.y - World.portal.y);
         if (portalDist < interactRange) {
             if (World.portal.active) {
+                this._checkQuestProgress('floor_cleared', null);
                 this.nextFloor();
             } else {
                 this.addLog("Portal kapalı! Bir sonraki kata geçmek için odalardaki tüm canavarları temizlemelisin!", "system");
@@ -251,6 +301,60 @@ const GameEngine = {
                 ));
             }
         }
+    },
+
+    // ─── GÖREV SİSTEMİ ───
+    _assignFloorQuest() {
+        this.questCompleted = false;
+        this.questProgress = 0;
+        this.playerHitThisFloor = false;
+        const quests = [
+            { id: 'hunter',   title: 'AVCI',    desc: '4 iskelet yen',              target: 4 },
+            { id: 'shadow',   title: 'GÖLGE',   desc: 'Hasar almadan katı temizle', target: 1 },
+            { id: 'alchemist',title: 'SİMYACI', desc: 'Bu katta 1 iksir kullan',    target: 1 },
+        ];
+        this.currentQuest = quests[Math.floor(Math.random() * quests.length)];
+    },
+
+    _checkQuestProgress(event, data) {
+        if (!this.currentQuest || this.questCompleted) return;
+        const q = this.currentQuest;
+        if (q.id === 'hunter' && event === 'kill' && data && data.type === 'skeleton') {
+            this.questProgress++;
+        }
+        if (q.id === 'shadow' && event === 'floor_cleared') {
+            if (!this.playerHitThisFloor) this.questProgress = 1;
+        }
+        if (q.id === 'alchemist' && event === 'potion_used') {
+            this.questProgress++;
+        }
+        if (this.questProgress >= q.target) {
+            this.questCompleted = true;
+            this.player.gold += 50;
+            this.addLog(`✅ GÖREV TAMAMLANDI: ${q.title}! +50 Altın!`, "loot");
+            this.textParticles.push(new TextParticle(
+                this.player.x, this.player.y - 40,
+                '+50g GÖREV!', 'var(--neon-gold)', '10px', true
+            ));
+            this._checkAchievements();
+        }
+    },
+
+    // ─── BAŞARIM SİSTEMİ ───
+    _checkAchievements() {
+        const defs = [
+            { key: 'dungeon_conqueror', name: 'Zindan Fatihi', icon: '🏰', cond: () => this.floor >= 10 },
+            { key: 'slime_slayer',      name: 'Balçık Katili', icon: '⚔️',  cond: () => parseInt(localStorage.getItem('pk_slimeKills') || 0) >= 100 },
+            { key: 'millionaire',       name: 'Milyarder',     icon: '💰', cond: () => this.player && this.player.gold >= 500 },
+        ];
+        defs.forEach(def => {
+            const already = localStorage.getItem(`pk_ach_${def.key}`);
+            if (!already && def.cond()) {
+                localStorage.setItem(`pk_ach_${def.key}`, '1');
+                this.achievementNotif = { text: `🏆 BAŞARIM: ${def.icon} ${def.name}!`, timer: 300 };
+                this.addLog(`🏆 BAŞARIM AÇILDI: ${def.name}!`, "loot");
+            }
+        });
     },
 
     // Can kaybı: 3 can sistemi
@@ -985,9 +1089,14 @@ const GameEngine = {
         this.player.update(Keyboard, Mouse, this);
 
         // Satıcıyı Güncelle
-        if (this.merchant) {
-            this.merchant.update(this.player, this);
-        }
+        if (this.merchant) this.merchant.update(this.player, this);
+
+        // Başarım bildirimi sayacı
+        if (this.achievementNotif && this.achievementNotif.timer > 0) this.achievementNotif.timer--;
+        else if (this.achievementNotif && this.achievementNotif.timer === 0) this.achievementNotif = null;
+
+        // Gold achievement kontrolü (her frame değil, sadece gold değişince)
+        if (this.player && this.player.gold >= 500) this._checkAchievements();
 
         // Boss Can Barı HUD güncellemesi
         if (this.boss) {
@@ -1087,6 +1196,9 @@ const GameEngine = {
         // Sandıkları Çiz
         this.chests.forEach(chest => chest.draw(this.ctx, World.camera));
 
+        // Kutsal Sütunları Çiz
+        this.shrines.forEach(shrine => shrine.draw(this.ctx, World.camera));
+
         // Ganimet Eşyalarını Çiz
         this.items.forEach(item => item.draw(this.ctx, World.camera));
 
@@ -1119,6 +1231,59 @@ const GameEngine = {
 
         // Sarsıntı matrisini kapat
         this.ctx.restore();
+
+        // ─── ZİNDAN TEMASı (BIOME) RENK OVERLAY ───
+        if (this.state === 'playing') {
+            let biomeColor = null;
+            if (this.floor === 5 || this.floor === 10) biomeColor = 'rgba(150,0,255,0.08)';      // Boss: mor
+            else if (this.floor >= 6 && this.floor <= 9) biomeColor = 'rgba(255,60,0,0.07)';    // Lav: kırmızı
+            if (biomeColor) {
+                this.ctx.save();
+                this.ctx.fillStyle = biomeColor;
+                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                this.ctx.restore();
+            }
+        }
+
+        // ─── GÖREV PANELİ (sol üst) ───
+        if (this.state === 'playing' && this.currentQuest) {
+            const q = this.currentQuest;
+            const prog = Math.min(this.questProgress, q.target);
+            const done = this.questCompleted;
+            const panelW = 160, panelH = 36;
+            const px = 8, py = 8;
+            this.ctx.save();
+            this.ctx.globalAlpha = 0.82;
+            this.ctx.fillStyle = done ? 'rgba(20,80,20,0.9)' : 'rgba(10,10,20,0.85)';
+            this.ctx.strokeStyle = done ? '#39ff14' : 'rgba(0,240,255,0.4)';
+            this.ctx.lineWidth = 1;
+            this.ctx.beginPath(); this.ctx.roundRect(px, py, panelW, panelH, 5); this.ctx.fill(); this.ctx.stroke();
+            this.ctx.globalAlpha = 1;
+            this.ctx.font = "6px 'Press Start 2P'";
+            this.ctx.fillStyle = done ? '#39ff14' : '#00f0ff';
+            this.ctx.textAlign = 'left';
+            this.ctx.fillText(`GÖREV: ${q.title}`, px + 6, py + 13);
+            this.ctx.fillStyle = '#aaa';
+            this.ctx.fillText(done ? '✓ TAMAMLANDI!' : `${q.desc} (${prog}/${q.target})`, px + 6, py + 27);
+            this.ctx.restore();
+        }
+
+        // ─── BAŞARIM BİLDİRİMİ ───
+        if (this.achievementNotif && this.achievementNotif.timer > 0) {
+            const alpha = Math.min(1, this.achievementNotif.timer / 60);
+            this.ctx.save();
+            this.ctx.globalAlpha = alpha * 0.95;
+            this.ctx.fillStyle = 'rgba(10,10,30,0.92)';
+            this.ctx.strokeStyle = '#ffd700';
+            this.ctx.lineWidth = 2;
+            const tw = 280, th = 28;
+            const tx = (this.canvas.width - tw) / 2, ty = this.canvas.height - 50;
+            this.ctx.beginPath(); this.ctx.roundRect(tx, ty, tw, th, 6); this.ctx.fill(); this.ctx.stroke();
+            this.ctx.globalAlpha = alpha;
+            this.ctx.font = "7px 'Press Start 2P'"; this.ctx.fillStyle = '#ffd700'; this.ctx.textAlign = 'center';
+            this.ctx.fillText(this.achievementNotif.text, this.canvas.width / 2, ty + 18);
+            this.ctx.restore();
+        }
 
         // Kombo sayacı canvas üzerinde göster (sağ üst)
         if (this.state === 'playing' && this.player && this.player.comboCount >= 3) {

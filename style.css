@@ -258,6 +258,23 @@ h1.pixel-text {
     min-height: 300px;
 }
 
+/* ─── CRT SCANLINE EFEKTİ ─── */
+.canvas-wrapper.crt-on::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0, 0, 0, 0.18) 2px,
+        rgba(0, 0, 0, 0.18) 4px
+    );
+    pointer-events: none;
+    z-index: 5;
+    border-radius: 14px;
+}
+
 #game-canvas {
     image-rendering: pixelated;
     width: 100%;
