@@ -35,6 +35,8 @@ const GameEngine = {
     _tooltipHideTimeout: null,
     traps: [],               // Çevre tuzakları
     _lastCombatState: false, // Dinamik müzik için savaş durumu takibi
+    tutorialStep: -1,        // -1=kapalı, 0-4=aktif ipucu adımı
+    tutorialTimer: 0,        // Her adımın gösterim süreci
     
     // Portal animasyonu
     portalFrame: 1,
@@ -115,6 +117,14 @@ const GameEngine = {
         document.getElementById('btn-victory-retry').addEventListener('click', () => {
             this.closeVictory();
             this.startNewGame();
+        });
+
+        document.getElementById('btn-meta').addEventListener('click', () => {
+            this.openMetaScreen();
+        });
+
+        document.getElementById('btn-close-meta').addEventListener('click', () => {
+            this.closeMetaScreen();
         });
 
         document.getElementById('btn-story-continue').addEventListener('click', () => {
@@ -208,6 +218,13 @@ const GameEngine = {
             this.player.qMaxCooldown = Math.floor(this.player.qMaxCooldown * 0.75);
             this.player.wMaxCooldown = Math.floor(this.player.wMaxCooldown * 0.75);
         }
+
+        // Kalıcı meta yükseltmelerini uygula (Ruh Taşı sistemi)
+        this._applyMetaUpgrades();
+
+        // Eğitim sistemi: ilk oynayışta ipuçları göster
+        this.tutorialStep = localStorage.getItem('pk_tutorial_done') ? -1 : 0;
+        this.tutorialTimer = 0;
 
         // 2. Varlıkları Haritaya Yerleştir
         this.spawnMapEntities();
@@ -502,6 +519,11 @@ const GameEngine = {
     gameOver() {
         this.state = 'gameover';
 
+        // Ruh Taşı kazanımı: kat * 2 + kill * 0.1
+        const earned = Math.floor(this.floor * 2 + this.killsCount * 0.1);
+        this._addSoulStones(earned);
+        if (earned > 0) this.addLog(`💎 +${earned} Ruh Taşı kazandın!`, "loot");
+
         // Öldün ekranı
         document.getElementById('summary-floor').innerText = this.floor;
         document.getElementById('summary-gold').innerText = this.player.gold;
@@ -514,6 +536,10 @@ const GameEngine = {
 
     // ─── ZAFER EKRANI ───
     showVictory() {
+        // Zafer bonusu ruh taşı
+        const earned = 200 + Math.floor(this.killsCount * 0.5);
+        this._addSoulStones(earned);
+        this.addLog(`💎 ZAFERDEKİ ÖDÜL: +${earned} Ruh Taşı!`, "loot");
         this.state = 'victory';
         const title = this._getPlayerTitle();
         const statsEl = document.getElementById('victory-stats');
@@ -574,6 +600,95 @@ const GameEngine = {
         if (this.floor >= 7)  return 'Zindan Avcısı';
         if (this.floor >= 4)  return 'Cesur Kahraman';
         return 'Çaylak Kaşif';
+    },
+
+    // ─── RUH TAŞI META-PROGRESSİON ───
+    _getSoulStones() {
+        return parseInt(localStorage.getItem('pk_soul_stones') || '0');
+    },
+
+    _addSoulStones(amount) {
+        const cur = this._getSoulStones();
+        localStorage.setItem('pk_soul_stones', cur + amount);
+    },
+
+    _applyMetaUpgrades() {
+        if (!this.player) return;
+        const atk  = parseInt(localStorage.getItem('pk_meta_atk')  || '0');
+        const def  = parseInt(localStorage.getItem('pk_meta_def')  || '0');
+        const hp   = parseInt(localStorage.getItem('pk_meta_hp')   || '0');
+        const crit = parseInt(localStorage.getItem('pk_meta_crit') || '0');
+        const life = parseInt(localStorage.getItem('pk_meta_life') || '0');
+        this.player.stats.atk  += atk  * 2;
+        this.player.stats.def  += def  * 2;
+        this.player.stats.maxHp+= hp   * 20;
+        this.player.stats.crit += crit * 3;
+        this.player.hp = this.player.getMaxHp();
+        this.lives = Math.min(5, 3 + life);
+        this.updateUI();
+    },
+
+    openMetaScreen() {
+        this.state = 'meta';
+        document.getElementById('screen-meta').classList.add('active');
+        this._drawMetaUpgrades();
+    },
+
+    closeMetaScreen() {
+        this.state = 'start';
+        document.getElementById('screen-meta').classList.remove('active');
+    },
+
+    _drawMetaUpgrades() {
+        const stones = this._getSoulStones();
+        const stoneEl = document.getElementById('soul-stone-count');
+        if (stoneEl) stoneEl.textContent = stones;
+
+        const container = document.getElementById('meta-upgrades-container');
+        if (!container) return;
+        container.innerHTML = '';
+
+        const upgrades = [
+            { key: 'atk',  label: '⚔️ Güçlü Başlangıç', desc: '+2 Saldırı (kalıcı)', cost: 20, max: 5 },
+            { key: 'def',  label: '🛡️ Demir Deri',        desc: '+2 Savunma (kalıcı)', cost: 20, max: 5 },
+            { key: 'hp',   label: '❤️ Kahraman Yüreği',   desc: '+20 Maks Can (kalıcı)',cost: 25, max: 4 },
+            { key: 'crit', label: '⚡ Keskin Göz',         desc: '+3% Kritik (kalıcı)', cost: 30, max: 3 },
+            { key: 'life', label: '✨ Ekstra Can',         desc: '+1 Başlangıç Canı',   cost: 50, max: 1 },
+        ];
+
+        upgrades.forEach(u => {
+            const cur = parseInt(localStorage.getItem(`pk_meta_${u.key}`) || '0');
+            const maxed = cur >= u.max;
+            const canAfford = stones >= u.cost && !maxed;
+
+            const el = document.createElement('div');
+            el.style.cssText = `border:1px solid ${canAfford ? '#555' : '#333'};border-radius:8px;padding:12px 14px;text-align:center;min-width:145px;background:rgba(0,0,0,0.5);transition:border-color 0.2s`;
+            if (canAfford) { el.style.cursor = 'pointer'; }
+            else { el.style.opacity = '0.5'; }
+
+            el.innerHTML = `
+                <div style="font-size:14px;margin-bottom:5px">${u.label.split(' ')[0]}</div>
+                <div class="pixel-text" style="font-size:7px;color:var(--neon-purple);margin-bottom:4px">${u.label.substring(u.label.indexOf(' ')+1)}</div>
+                <div style="font-size:9px;color:#aaa;margin-bottom:6px">${u.desc}</div>
+                <div style="font-size:8px;color:#777;margin-bottom:6px">${cur}/${u.max} Seviye</div>
+                ${maxed ? '<div style="font-size:9px;color:var(--neon-gold)">✅ TAMAMLANDI</div>' : `<div style="font-size:10px;color:var(--neon-purple)">💎 ${u.cost} Ruh Taşı</div>`}
+            `;
+
+            if (canAfford) {
+                el.addEventListener('mouseenter', () => { el.style.borderColor = 'var(--neon-purple)'; });
+                el.addEventListener('mouseleave', () => { el.style.borderColor = '#555'; });
+                el.addEventListener('click', () => {
+                    const cur2 = parseInt(localStorage.getItem(`pk_meta_${u.key}`) || '0');
+                    const stones2 = this._getSoulStones();
+                    if (stones2 >= u.cost && cur2 < u.max) {
+                        localStorage.setItem('pk_soul_stones', stones2 - u.cost);
+                        localStorage.setItem(`pk_meta_${u.key}`, cur2 + 1);
+                        this._drawMetaUpgrades();
+                    }
+                });
+            }
+            container.appendChild(el);
+        });
     },
 
     // Seviye Atlama (Geliştirme Popup Seçim Kartlarını Göster)
@@ -1389,6 +1504,20 @@ const GameEngine = {
         // 3.5. Tuzakları Güncelle
         this.traps.forEach(trap => trap.update(this.player, this));
 
+        // Eğitim sayacı
+        if (this.tutorialStep >= 0) {
+            this.tutorialTimer++;
+            const stepDurations = [300, 300, 300, 240, 240]; // frame per step
+            if (this.tutorialTimer >= (stepDurations[this.tutorialStep] || 300)) {
+                this.tutorialStep++;
+                this.tutorialTimer = 0;
+                if (this.tutorialStep >= 5) {
+                    this.tutorialStep = -1;
+                    localStorage.setItem('pk_tutorial_done', '1');
+                }
+            }
+        }
+
         // Dinamik müzik: yakın düşman varsa savaş moduna geç
         if (SoundEngine.musicPlaying && this.enemies.length > 0) {
             const inCombat = this.enemies.some(e => Math.hypot(e.x - this.player.x, e.y - this.player.y) < 220);
@@ -1575,6 +1704,36 @@ const GameEngine = {
             this.ctx.fillStyle = comboColor;
             this.ctx.fillText(`COMBO x${this.player.comboCount}`, cx, cy);
             this.ctx.restore();
+        }
+
+        // ─── EĞİTİM İPUÇLARI (İlk Oynayış) ───
+        if (this.state === 'playing' && this.tutorialStep >= 0) {
+            const hints = [
+                { text: '⌨ WASD veya Ok Tuşları ile hareket et', sub: '' },
+                { text: '🖱 Sol Tık ile saldır', sub: 'Düşmana yönelik tıkla!' },
+                { text: '⚔ Q: Hızlı Hücum  |  R: Silah Yağmuru', sub: 'Yetenek tuşları' },
+                { text: '📦 [E] ile sandık ve portal aç', sub: 'Tüm düşmanları yen → Portal açılır' },
+                { text: '💎 İyi oyunlar! Efsaneler seni bekliyor...', sub: '' },
+            ];
+            const h = hints[this.tutorialStep];
+            if (h) {
+                const cx = this.canvas.width / 2;
+                const cy = this.canvas.height - 44;
+                this.ctx.save();
+                this.ctx.fillStyle = 'rgba(0,0,0,0.65)';
+                this.ctx.roundRect ? this.ctx.roundRect(cx - 220, cy - 20, 440, 40, 8) : this.ctx.fillRect(cx - 220, cy - 20, 440, 40);
+                this.ctx.fill();
+                this.ctx.font = "8px 'Press Start 2P'";
+                this.ctx.textAlign = 'center';
+                this.ctx.fillStyle = '#00f0ff';
+                this.ctx.fillText(h.text, cx, cy - 3);
+                if (h.sub) {
+                    this.ctx.font = "6px 'Press Start 2P'";
+                    this.ctx.fillStyle = '#aaa';
+                    this.ctx.fillText(h.sub, cx, cy + 12);
+                }
+                this.ctx.restore();
+            }
         }
 
         // 3. Ekrana ek görsel HUD uyarıları çizdir (Portal Aktifse canvas ortasında yanıp sönen uyarı)

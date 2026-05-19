@@ -95,7 +95,12 @@
                                     <div style="font-size:8px;color:#aaa;margin-top:5px;line-height:1.6">%25 Kısa<br>Bekleme</div>
                                 </div>
                             </div>
-                            <button id="btn-start" class="action-btn pixel-text">MACERAYA BAŞLA</button>
+                            <div style="display:flex;gap:8px;justify-content:center;align-items:center;margin-top:4px">
+                                <button id="btn-start" class="action-btn pixel-text">MACERAYA BAŞLA</button>
+                                <button id="btn-meta" class="action-btn pixel-text" style="background:rgba(130,0,255,0.2);border-color:var(--neon-purple);font-size:9px;padding:12px 16px" title="Ruh Taşları - Kalıcı Yükseltmeler">
+                                    💎 RUH TAŞLARI
+                                </button>
+                            </div>
                         </div>
                     </div>
 
@@ -137,6 +142,26 @@
                             <div id="shop-items-container" class="shop-grid"></div>
                             <button id="btn-close-shop" class="action-btn pixel-text" style="font-size:10px; padding:12px 28px;">
                                 <i class="fa-solid fa-door-open"></i> DÜKKANI KAPAT [E]
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Katman 4b: Ruh Taşı Meta-Progression -->
+                    <div id="screen-meta" class="overlay-screen">
+                        <div class="screen-content shop-content">
+                            <div class="level-up-banner">
+                                <span style="font-size:28px">💎</span>
+                                <h2 class="pixel-text" style="color:var(--neon-purple)">RUH TAŞLARI</h2>
+                            </div>
+                            <p class="description" style="font-size:11px;margin-bottom:4px">Her oyun sonu kazanılan ruh taşlarıyla kalıcı güç kazan!</p>
+                            <div style="font-size:14px;margin-bottom:12px">
+                                <span style="color:var(--neon-purple)">💎</span>
+                                <span id="soul-stone-count" class="pixel-text" style="color:var(--neon-purple)">0</span>
+                                <span style="color:#888;font-size:10px;margin-left:4px">Ruh Taşı</span>
+                            </div>
+                            <div id="meta-upgrades-container" style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-height:280px;overflow-y:auto;margin-bottom:12px;padding:4px"></div>
+                            <button id="btn-close-meta" class="action-btn pixel-text" style="font-size:10px;padding:12px 24px;">
+                                <i class="fa-solid fa-arrow-left"></i> GERİ DÖN
                             </button>
                         </div>
                     </div>

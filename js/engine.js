@@ -44,6 +44,8 @@ const InputManager = {
                     } else if (window.GameEngine.state === 'victory') {
                         window.GameEngine.closeVictory();
                         window.GameEngine.startNewGame();
+                    } else if (window.GameEngine.state === 'meta') {
+                        window.GameEngine.closeMetaScreen();
                     }
                 }
             }
