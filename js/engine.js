@@ -30,6 +30,8 @@ const InputManager = {
                         window.GameEngine.handleInteraction();
                     } else if (window.GameEngine.state === 'shop') {
                         window.GameEngine.closeShop();
+                    } else if (window.GameEngine.state === 'forge') {
+                        window.GameEngine.closeForge();
                     }
                 }
             }

@@ -284,6 +284,30 @@ h1.pixel-text {
     object-fit: contain;
 }
 
+/* ─── BAŞLANGIÇ SINIFI SEÇİM KARTLARI ─── */
+.class-card {
+    border: 2px solid #333;
+    border-radius: 10px;
+    padding: 12px 14px;
+    cursor: pointer;
+    text-align: center;
+    min-width: 90px;
+    background: rgba(0, 0, 0, 0.5);
+    transition: border-color 0.2s, background 0.2s, transform 0.15s;
+    user-select: none;
+}
+
+.class-card:hover {
+    border-color: #666;
+    transform: translateY(-2px);
+}
+
+.class-card.selected {
+    border-color: var(--neon-gold);
+    background: rgba(255, 190, 0, 0.07);
+    box-shadow: 0 0 14px rgba(255, 190, 0, 0.25);
+}
+
 /* OVERLAY SCREENS (Ekran Katmanları) */
 .overlay-screen {
     position: absolute;

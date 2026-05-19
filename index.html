@@ -77,6 +77,24 @@
                                 <div class="key-guide"><span class="key-cap">Q</span> <span>Hızlı Hücum</span></div>
                                 <div class="key-guide"><span class="key-cap">R</span> <span>Silah Yağmuru</span></div>
                             </div>
+                            <div style="margin-bottom:4px;font-size:10px;color:#888;font-family:'Outfit',sans-serif">Sınıfını seç:</div>
+                            <div id="class-selection-row" style="display:flex;gap:10px;justify-content:center;margin-bottom:16px">
+                                <div class="class-card selected" data-class="warrior">
+                                    <div style="font-size:22px;margin-bottom:4px">⚔️</div>
+                                    <div class="pixel-text" style="font-size:8px;color:var(--neon-cyan)">SAVAŞÇI</div>
+                                    <div style="font-size:8px;color:#aaa;margin-top:5px;line-height:1.6">+5 Savunma<br>Güçlü Vuruş</div>
+                                </div>
+                                <div class="class-card" data-class="ranger">
+                                    <div style="font-size:22px;margin-bottom:4px">🏹</div>
+                                    <div class="pixel-text" style="font-size:8px;color:var(--neon-green)">NİŞANCI</div>
+                                    <div style="font-size:8px;color:#aaa;margin-top:5px;line-height:1.6">+5% Kritik<br>+0.3 Hız</div>
+                                </div>
+                                <div class="class-card" data-class="mage">
+                                    <div style="font-size:22px;margin-bottom:4px">🔮</div>
+                                    <div class="pixel-text" style="font-size:8px;color:var(--neon-purple)">BÜYÜCÜ</div>
+                                    <div style="font-size:8px;color:#aaa;margin-top:5px;line-height:1.6">%25 Kısa<br>Bekleme</div>
+                                </div>
+                            </div>
                             <button id="btn-start" class="action-btn pixel-text">MACERAYA BAŞLA</button>
                         </div>
                     </div>
@@ -119,6 +137,21 @@
                             <div id="shop-items-container" class="shop-grid"></div>
                             <button id="btn-close-shop" class="action-btn pixel-text" style="font-size:10px; padding:12px 28px;">
                                 <i class="fa-solid fa-door-open"></i> DÜKKANI KAPAT [E]
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Katman 5: Demirci Ocağı -->
+                    <div id="screen-forge" class="overlay-screen">
+                        <div class="screen-content shop-content">
+                            <div class="level-up-banner">
+                                <span style="font-size:28px">⚒️</span>
+                                <h2 class="pixel-text" style="color:var(--neon-gold)">DEMİRCİ OCAĞI</h2>
+                            </div>
+                            <p class="description" style="font-size:11px;margin-bottom:4px">2 aynı nadirlikte ekipmanı birleştirerek daha güçlü bir eşya yap!</p>
+                            <div id="forge-pairs-container" style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;max-height:240px;overflow-y:auto;margin-bottom:12px;padding:4px"></div>
+                            <button id="btn-close-forge" class="action-btn pixel-text" style="font-size:10px;padding:12px 28px;">
+                                <i class="fa-solid fa-times"></i> KAPAT [E]
                             </button>
                         </div>
                     </div>
@@ -320,7 +353,11 @@
                     <div class="bottom-section section-inventory">
                         <div class="inventory-header">
                             <div class="panel-title pixel-text"><i class="fa-solid fa-briefcase"></i> ENVANTER</div>
-                            <span id="inv-count" class="pixel-text font-small">0/16</span>
+                            <div style="display:flex;gap:4px;align-items:center">
+                                <button id="btn-forge" class="control-btn" style="font-size:9px;padding:2px 6px;letter-spacing:0" title="Demirci Ocağı - Eşya Birleştir">⚒</button>
+                                <button id="btn-sort-inv" class="control-btn" style="font-size:9px;padding:2px 6px;letter-spacing:0" title="Envanteri Sırala">⇅</button>
+                                <span id="inv-count" class="pixel-text font-small">0/16</span>
+                            </div>
                         </div>
                         <div class="inventory-grid" id="inventory-container"></div>
                     </div>

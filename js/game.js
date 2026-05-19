@@ -30,6 +30,7 @@ const GameEngine = {
     playerHitThisFloor: false, // "Gölge" görevi için
     crtEnabled: false,  // CRT filtre aktif mi?
     achievementNotif: null, // { text, timer }
+    selectedClass: 'warrior', // Başlangıç sınıfı: warrior / ranger / mage
     
     // Portal animasyonu
     portalFrame: 1,
@@ -103,6 +104,27 @@ const GameEngine = {
             this.closeShop();
         });
 
+        document.getElementById('btn-close-forge').addEventListener('click', () => {
+            this.closeForge();
+        });
+
+        document.getElementById('btn-sort-inv').addEventListener('click', () => {
+            if (this.state === 'playing' && this.player) this.sortInventory();
+        });
+
+        document.getElementById('btn-forge').addEventListener('click', () => {
+            if (this.state === 'playing' && this.player) this.openForge();
+        });
+
+        // Başlangıç sınıfı seçim kartları
+        document.querySelectorAll('.class-card').forEach(card => {
+            card.addEventListener('click', () => {
+                document.querySelectorAll('.class-card').forEach(c => c.classList.remove('selected'));
+                card.classList.add('selected');
+                this.selectedClass = card.dataset.class;
+            });
+        });
+
         // Tooltip'i fareyle takip et, ekrandan taşmayı önle
         document.addEventListener('mousemove', (e) => {
             const tooltip = document.getElementById('item-tooltip');
@@ -142,6 +164,18 @@ const GameEngine = {
         // 1. Zindanı ve Oyuncuyu Üret
         World.generate(this.floor);
         this.player = new Player(World.spawnPoints.player.x, World.spawnPoints.player.y);
+
+        // Sınıf bonusları uygula
+        this.selectedClass = this.selectedClass || 'warrior';
+        if (this.selectedClass === 'warrior') {
+            this.player.stats.def += 5;
+        } else if (this.selectedClass === 'ranger') {
+            this.player.stats.crit += 5;
+            this.player.stats.spd += 0.3;
+        } else if (this.selectedClass === 'mage') {
+            this.player.qMaxCooldown = Math.floor(this.player.qMaxCooldown * 0.75);
+            this.player.wMaxCooldown = Math.floor(this.player.wMaxCooldown * 0.75);
+        }
 
         // 2. Varlıkları Haritaya Yerleştir
         this.spawnMapEntities();
@@ -883,6 +917,20 @@ const GameEngine = {
         }
     },
 
+    // Envanteri nadirliğe göre sırala (efsanevi > nadir > yaygın, iksirler sonda)
+    sortInventory() {
+        if (!this.player) return;
+        const order = { legendary: 0, rare: 1, common: 2 };
+        const isConsumable = (item) => !item.stats || item.type === 'gold' || item.type.startsWith('potion');
+        this.player.inventory.sort((a, b) => {
+            const aC = isConsumable(a), bC = isConsumable(b);
+            if (aC !== bC) return aC ? 1 : -1;
+            return (order[a.rarity] ?? 3) - (order[b.rarity] ?? 3);
+        });
+        this.drawInventory();
+        this.addLog("Envanter sıralandı.", "system");
+    },
+
     // Hover Tooltip Bilgi Penceresi Gösterimi
     showTooltip(item, isInventory = false) {
         const tooltip = document.getElementById('item-tooltip');
@@ -900,14 +948,36 @@ const GameEngine = {
         rarityEl.innerText = item.rarity === 'common' ? 'YAYGIN' : (item.rarity === 'rare' ? 'NADİR' : 'EFSANEVİ');
         rarityEl.className = `item-rarity-badge rarity-badge-${item.rarity}`;
 
-        // Nitelik bonuslarını doldur
+        // Nitelik bonusları + kuşanılı eşya ile karşılaştırma
         statsEl.innerHTML = '';
         if (item.stats) {
-            if (item.stats.atk) statsEl.innerHTML += `<div>+${item.stats.atk} SALDIRI</div>`;
-            if (item.stats.def) statsEl.innerHTML += `<div style="color: var(--neon-cyan)">+${item.stats.def} DEFANS</div>`;
-            if (item.stats.hp) statsEl.innerHTML += `<div style="color: var(--neon-green)">+${item.stats.hp} MAKS CAN</div>`;
-            if (item.stats.spd) statsEl.innerHTML += `<div style="color: var(--neon-purple)">+${Math.floor(item.stats.spd * 100)}% HIZ</div>`;
-            if (item.stats.crit) statsEl.innerHTML += `<div style="color: var(--neon-gold)">+${item.stats.crit}% KRİTİK</div>`;
+            // Kuşanılmış eşyayı bul (eşya slotunu tahmin et)
+            let equippedItem = null;
+            if (item.type && this.player) {
+                const t = item.type;
+                if (t.includes('sword') || t.includes('bow') || t.includes('dagger') || t.includes('staff'))
+                    equippedItem = this.player.equipment.weapon;
+                else if (t.includes('armor')) equippedItem = this.player.equipment.armor;
+                else if (t.includes('helmet')) equippedItem = this.player.equipment.helmet;
+                else if (t.includes('ring')) equippedItem = this.player.equipment.ring;
+                else if (t.includes('necklace')) equippedItem = this.player.equipment.necklace;
+                else if (t.includes('earrings')) equippedItem = this.player.equipment.earrings;
+                else if (t.includes('gloves')) equippedItem = this.player.equipment.gloves;
+                else if (t.includes('boots')) equippedItem = this.player.equipment.boots;
+                else if (t.includes('shield')) equippedItem = this.player.equipment.armor;
+            }
+            const eStats = equippedItem && equippedItem.stats ? equippedItem.stats : {};
+            const diff = (key) => {
+                const d = (item.stats[key] || 0) - (eStats[key] || 0);
+                if (!equippedItem || d === 0) return '';
+                return d > 0 ? ` <span style="color:#39ff14">(+${d})</span>` : ` <span style="color:#ff4444">(${d})</span>`;
+            };
+            if (item.stats.atk) statsEl.innerHTML += `<div>+${item.stats.atk} SALDIRI${diff('atk')}</div>`;
+            if (item.stats.def) statsEl.innerHTML += `<div style="color:var(--neon-cyan)">+${item.stats.def} DEFANS${diff('def')}</div>`;
+            if (item.stats.hp) statsEl.innerHTML += `<div style="color:var(--neon-green)">+${item.stats.hp} MAKS CAN${diff('hp')}</div>`;
+            if (item.stats.spd) statsEl.innerHTML += `<div style="color:var(--neon-purple)">+${Math.floor(item.stats.spd * 100)}% HIZ${diff('spd')}</div>`;
+            if (item.stats.crit) statsEl.innerHTML += `<div style="color:var(--neon-gold)">+${item.stats.crit}% KRİTİK${diff('crit')}</div>`;
+            if (equippedItem) statsEl.innerHTML += `<div style="color:#888;font-size:8px">▲ Kuşanılı: ${equippedItem.name}</div>`;
         }
 
         descEl.innerText = item.description || '';
@@ -1332,6 +1402,103 @@ const GameEngine = {
     closeShop() {
         this.state = 'playing';
         document.getElementById('screen-shop').classList.remove('active');
+        this.updateUI();
+    },
+
+    // --- DEMİRCİ OCAĞI (FORGE) ---
+    openForge() {
+        this.state = 'forge';
+        document.getElementById('screen-forge').classList.add('active');
+        this.drawForge();
+    },
+
+    closeForge() {
+        this.state = 'playing';
+        document.getElementById('screen-forge').classList.remove('active');
+        this.updateUI();
+    },
+
+    _getItemCategory(type) {
+        if (!type) return 'sword';
+        return type.split('_')[0] || 'sword';
+    },
+
+    drawForge() {
+        const container = document.getElementById('forge-pairs-container');
+        container.innerHTML = '';
+        const inv = this.player.inventory;
+        const isEquip = (item) => item.stats && item.type !== 'gold' && !item.type.startsWith('potion');
+        const rarityUp = { common: 'rare', rare: 'legendary' };
+        const pairs = [];
+        const used = new Set();
+
+        for (let i = 0; i < inv.length; i++) {
+            if (!isEquip(inv[i]) || inv[i].rarity === 'legendary' || used.has(i)) continue;
+            for (let j = i + 1; j < inv.length; j++) {
+                if (!isEquip(inv[j]) || used.has(j)) continue;
+                if (inv[i].rarity === inv[j].rarity) {
+                    pairs.push([i, j]);
+                    used.add(i); used.add(j);
+                    break;
+                }
+            }
+        }
+
+        if (pairs.length === 0) {
+            container.innerHTML = '<div style="color:#888;font-size:10px;text-align:center;width:100%;padding:24px 0">Birleştirilebilecek eşya yok.<br><span style="color:#555">Aynı nadirlikte 2 ekipman gerekli.</span></div>';
+            return;
+        }
+
+        const cost = { common: 20, rare: 50 };
+        const rarityColor = { rare: 'var(--neon-cyan)', legendary: 'var(--neon-gold)' };
+        const rarityName = { rare: 'NADİR', legendary: 'EFSANEVİ' };
+
+        pairs.forEach(([idxA, idxB]) => {
+            const a = inv[idxA], b = inv[idxB];
+            const newRarity = rarityUp[a.rarity];
+            const mergeCost = cost[a.rarity];
+            const canAfford = this.player.gold >= mergeCost;
+
+            const el = document.createElement('div');
+            el.style.cssText = `border:1px solid ${canAfford ? '#555' : '#333'};border-radius:8px;padding:10px 14px;text-align:center;min-width:155px;max-width:175px;background:rgba(0,0,0,0.5);transition:border-color 0.2s`;
+            if (canAfford) {
+                el.style.cursor = 'pointer';
+                el.addEventListener('mouseenter', () => { el.style.borderColor = 'var(--neon-gold)'; });
+                el.addEventListener('mouseleave', () => { el.style.borderColor = '#555'; });
+                el.addEventListener('click', () => this.mergeItems(idxA, idxB, newRarity, mergeCost));
+            } else {
+                el.style.opacity = '0.4';
+            }
+
+            el.innerHTML = `
+                <div style="font-size:9px;color:#ccc;margin-bottom:3px">${a.name}</div>
+                <div style="font-size:11px;color:#444;margin-bottom:3px">+</div>
+                <div style="font-size:9px;color:#ccc;margin-bottom:7px">${b.name}</div>
+                <div style="font-size:9px;color:var(--neon-gold);margin-bottom:7px">⚒ ${mergeCost} Altın</div>
+                <div style="font-size:9px;color:${rarityColor[newRarity]}">→ ${rarityName[newRarity]} EKİPMAN</div>
+            `;
+            container.appendChild(el);
+        });
+    },
+
+    mergeItems(idxA, idxB, newRarity, mergeCost) {
+        const a = this.player.inventory[idxA];
+        const b = this.player.inventory[idxB];
+        this.player.gold -= mergeCost;
+
+        // Yüksek indeksi önce sil (indeks kaymasını önler)
+        const [hi, lo] = idxA > idxB ? [idxA, idxB] : [idxB, idxA];
+        this.player.inventory.splice(hi, 1);
+        this.player.inventory.splice(lo, 1);
+
+        const cat = this._getItemCategory(a.type);
+        const newItem = new Item(this.player.x, this.player.y, cat + '_' + newRarity);
+        this.player.inventory.push(newItem);
+
+        SoundEngine.playLevelUp();
+        this.addLog(`⚒ [${a.name}] + [${b.name}] → [${newItem.name}]`, "loot");
+        this.triggerScreenShake(3);
+        this.drawForge();
         this.updateUI();
     },
 
