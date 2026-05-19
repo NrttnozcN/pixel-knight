@@ -42,7 +42,7 @@ const World = {
         this.spawnPoints.merchant = null; // Sıfırla
         this.portal.active = false;
         
-        const isBossFloor = (floorLevel % 5 === 0);
+        const isBossFloor = (floorLevel % 10 === 0);
         
         if (isBossFloor) {
             // Boss Katları daha derli toplu ve arenaya özel olur
@@ -177,7 +177,7 @@ const World = {
             }
 
             // Canavar Sayısı (Oda büyüklüğüne ve kat seviyesine göre 1-3 canavar)
-            const enemyCount = Math.floor(Math.random() * 2) + 1 + Math.floor(floorLevel / 3);
+            const enemyCount = Math.min(5, Math.floor(Math.random() * 2) + 1 + Math.floor(floorLevel / 12));
             for (let e = 0; e < enemyCount; e++) {
                 const enemyX = (room.x + Math.floor(Math.random() * (room.w - 2)) + 1) * this.tileSize + this.tileSize / 2;
                 const enemyY = (room.y + Math.floor(Math.random() * (room.h - 2)) + 1) * this.tileSize + this.tileSize / 2;

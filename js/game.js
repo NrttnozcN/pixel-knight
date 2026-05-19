@@ -34,6 +34,7 @@ const GameEngine = {
     _hoveredInvIndex: -1,    // Tooltip üzerindeki envanter slot indeksi (salvage için)
     _tooltipHideTimeout: null,
     traps: [],               // Çevre tuzakları
+    captives: [],            // Kurtarılabilir esir NPC'ler
     _lastCombatState: false, // Dinamik müzik için savaş durumu takibi
     tutorialStep: -1,        // -1=kapalı, 0-4=aktif ipucu adımı
     tutorialTimer: 0,        // Her adımın gösterim süreci
@@ -188,6 +189,7 @@ const GameEngine = {
         this.lives = 3;
         this.shrines = [];
         this.traps = [];
+        this.captives = [];
         this.currentQuest = null;
         this.questProgress = 0;
         this.questCompleted = false;
@@ -207,17 +209,35 @@ const GameEngine = {
         World.generate(this.floor);
         this.player = new Player(World.spawnPoints.player.x, World.spawnPoints.player.y);
 
-        // Sınıf bonusları uygula
+        // Sınıf bonusları uygula — güçlü ve belirgin farklılıklar + farklı başlangıç ekipmanı
         this.selectedClass = this.selectedClass || 'warrior';
         if (this.selectedClass === 'warrior') {
-            this.player.stats.def += 5;
+            this.player.stats.def  += 8;
+            this.player.stats.atk  += 5;
+            this.player.stats.maxHp+= 20;
+            // Savaşçı: Kalkan ile başlar (zırh slotuna)
+            this.player.equipment.armor = { type: 'shield_common', name: 'Başlangıç Kalkanı', rarity: 'common', stats: { def: 4, hp: 8 }, description: 'Savaşçının kalkanı.' };
+            this.addLog("⚔️ SAVAŞÇI: +8 Def, +5 Atk, +20 Can, Kalkan kuşandın!", "level");
         } else if (this.selectedClass === 'ranger') {
-            this.player.stats.crit += 5;
-            this.player.stats.spd += 0.3;
+            this.player.stats.crit += 12;
+            this.player.stats.spd  += 0.6;
+            this.player.stats.atk  += 4;
+            // Nişancı: Yay ile başlar (silah slotuna)
+            this.player.equipment.weapon = { type: 'bow_common', name: 'Başlangıç Yayı', rarity: 'common', stats: { atk: 4 }, description: 'Nişancının yayı. (+4 Hasar)' };
+            this.addLog("🏹 NİŞANCI: +12 Kritik, +0.6 Hız, +4 Atk, Yay kuşandın!", "level");
         } else if (this.selectedClass === 'mage') {
-            this.player.qMaxCooldown = Math.floor(this.player.qMaxCooldown * 0.75);
-            this.player.wMaxCooldown = Math.floor(this.player.wMaxCooldown * 0.75);
+            this.player.qMaxCooldown = Math.floor(this.player.qMaxCooldown * 0.55);
+            this.player.wMaxCooldown = Math.floor(this.player.wMaxCooldown * 0.55);
+            this.player.stats.atk  += 9;
+            this.player.stats.crit += 6;
+            this.player.stats.maxHp+= 25;
+            // Büyücü: Asa ile başlar (silah slotuna)
+            this.player.equipment.weapon = { type: 'staff_common', name: 'Başlangıç Asası', rarity: 'common', stats: { atk: 4, hp: 10 }, description: 'Büyücünün asası. (+4 Hasar, +10 Can)' };
+            this.addLog("🔮 BÜYÜCÜ: Yetenek CD -45%, +9 Atk, +6 Kritik, +25 Can, Asa kuşandın!", "level");
         }
+        // Ekipman sprite'larını güncelle
+        if (window.SpriteEngine) window.SpriteEngine.updatePlayerSprites(this.player.equipment);
+        this.player.hp = this.player.getMaxHp();
 
         // Kalıcı meta yükseltmelerini uygula (Ruh Taşı sistemi)
         this._applyMetaUpgrades();
@@ -257,6 +277,7 @@ const GameEngine = {
         this.textParticles = [];
         this.projectiles = [];
         this.traps = [];
+        this.captives = [];
         this._lastCombatState = false;
         this.merchant = null;
         this.boss = null;
@@ -285,29 +306,49 @@ const GameEngine = {
             this.addLog(`💰 Yatırımlarından +${interest} altın faiz geliri kazandın!`, "loot");
         }
 
-        this.addLog(`Zindanın daha karanlık kısımlarına geçtin... Kat: ${this.floor}`, "level");
+        const zoneNames = ['','Karanlık Zindan','Gölge Mağarası','Goblin Yurdu','Alev Krallığı','Donmuş Tundra','Orman Tapınağı','Şeytan Kalesi','Gökyüzü Kalesi','Yokluk Alemi','Ejder Yuvası'];
+        const zone = Math.ceil(this.floor / 10);
+        const zoneName = zoneNames[zone] || 'Uçurum';
+        this.addLog(`📍 Kat ${this.floor} — ${zoneName}`, "level");
         this._checkAchievements();
 
-        // Hikaye diyalogları: Kat 5 (ara boss) ve kat 10 (final boss)
-        if (this.floor === 5 || this.floor === 10) {
+        // Hikaye diyalogları: Her 10. katta bölge geçişi hikayesi
+        if (this.floor % 10 === 0) {
             setTimeout(() => this.showStoryDialog(this.floor), 600);
         }
 
         this.updateUI();
     },
 
+    // Bölgeye göre düşman türleri döndür (10'ar katlık bölgeler)
+    _getEnemyTypesForFloor(floor) {
+        if (floor <= 10)  return ['slime', 'slime_fire', 'skeleton'];
+        if (floor <= 20)  return ['slime_shadow', 'skeleton', 'goblin'];
+        if (floor <= 30)  return ['goblin', 'zombie', 'spider'];
+        if (floor <= 40)  return ['spider', 'troll', 'witch'];
+        if (floor <= 50)  return ['troll', 'witch', 'ice_golem'];
+        if (floor <= 60)  return ['ice_golem', 'demon', 'witch'];
+        if (floor <= 70)  return ['demon', 'void_wraith', 'ice_golem'];
+        if (floor <= 80)  return ['void_wraith', 'dragon_spawn', 'demon'];
+        if (floor <= 90)  return ['dragon_spawn', 'abyss_lord', 'void_wraith'];
+        return ['abyss_lord', 'dragon_spawn', 'void_wraith'];
+    },
+
     // Harita üstünde canavar ve sandık sınıflarını ayağa kaldır
     spawnMapEntities() {
         this.shrines = [];
+        this.captives = [];
 
         // Sandıkları oluştur
         World.spawnPoints.chests.forEach(pt => {
             this.chests.push(new Chest(pt.x, pt.y));
         });
 
-        // Düşmanları oluştur
+        // Düşmanları bölgeye uygun türle oluştur
+        const zoneTypes = this._getEnemyTypesForFloor(this.floor);
         World.spawnPoints.enemies.forEach(pt => {
-            this.enemies.push(new Enemy(pt.x, pt.y, pt.type));
+            const type = zoneTypes[Math.floor(Math.random() * zoneTypes.length)];
+            this.enemies.push(new Enemy(pt.x, pt.y, type));
         });
 
         // Kutsal sütunlar: Boss katı hariç %40 ihtimalle 1 sütun
@@ -335,10 +376,25 @@ const GameEngine = {
             }
         }
 
-        // Kilitli altın sandık: Kat 3, 6, 9'da %60 ihtimalle
-        if (this.floor >= 3 && [3, 6, 9].includes(this.floor) && World.spawnPoints.chests.length > 0) {
+        // Kilitli altın sandık: Her 3 katta bir %60 ihtimalle
+        if (this.floor >= 3 && this.floor % 3 === 0 && !World.spawnPoints.boss && World.spawnPoints.chests.length > 0) {
             const cp = World.spawnPoints.chests[0];
             this.chests.push(new Chest(cp.x + 80, cp.y, true));
+        }
+
+        // Esir NPC'ler: Kat 2'den itibaren normal katlarda 1-2 esir
+        if (this.floor > 1 && !World.spawnPoints.boss && World.spawnPoints.enemies.length > 1) {
+            const captiveCount = Math.random() < 0.45 ? 2 : 1;
+            const npcTypes = ['peasant', 'soldier', 'mage', 'merchant'];
+            for (let c = 0; c < captiveCount; c++) {
+                const ep = World.spawnPoints.enemies[Math.floor(Math.random() * World.spawnPoints.enemies.length)];
+                const cx = ep.x + (Math.random() - 0.5) * 100;
+                const cy = ep.y + (Math.random() - 0.5) * 100;
+                if (World.isWalkable(cx, cy)) {
+                    const type = npcTypes[Math.floor(Math.random() * npcTypes.length)];
+                    this.captives.push(new CaptiveNPC(cx, cy, type));
+                }
+            }
         }
 
         // Yeni kat görevi ata
@@ -397,6 +453,19 @@ const GameEngine = {
             }
         });
 
+        // 1.7. Esir NPC kurtarma
+        let rescuedAny = false;
+        this.captives.forEach(npc => {
+            if (!npc.rescued) {
+                const dist = Math.hypot(this.player.x - npc.x, this.player.y - npc.y);
+                if (dist < npc.interactRange) {
+                    npc.rescue(this);
+                    rescuedAny = true;
+                }
+            }
+        });
+        if (rescuedAny) return;
+
         // 2. Çıkış portalına girmeyi dene
         const portalDist = Math.hypot(this.player.x - World.portal.x, this.player.y - World.portal.y);
         if (portalDist < interactRange) {
@@ -423,19 +492,28 @@ const GameEngine = {
         this.questCompleted = false;
         this.questProgress = 0;
         this.playerHitThisFloor = false;
+        const killTarget = 3 + Math.floor(this.floor / 15); // Ölçekli hedef: kat 1=3, kat 100=9
         const quests = [
-            { id: 'hunter',   title: 'AVCI',    desc: '4 iskelet yen',              target: 4 },
-            { id: 'shadow',   title: 'GÖLGE',   desc: 'Hasar almadan katı temizle', target: 1 },
-            { id: 'alchemist',title: 'SİMYACI', desc: 'Bu katta 1 iksir kullan',    target: 1 },
+            { id: 'hunter',   title: 'AVCI',     desc: `${killTarget} düşman yen`,    target: killTarget },
+            { id: 'shadow',   title: 'GÖLGE',    desc: 'Hasar almadan katı temizle',  target: 1 },
+            { id: 'alchemist',title: 'SİMYACI',  desc: 'Bu katta 1 iksir kullan',     target: 1 },
+            { id: 'rescuer',  title: 'KURTARICI',desc: '1 esiri kurtar',              target: 1 },
+            { id: 'treasure', title: 'HAZINEDAR',desc: '2 sandık aç',                target: 2 },
         ];
-        this.currentQuest = quests[Math.floor(Math.random() * quests.length)];
+        // Boss katlarında sadece savaşçı görevi
+        if (this.floor % 10 === 0) {
+            this.currentQuest = { id: 'hunter', title: 'BOSS AVCISI', desc: `Boss'u yen!`, target: 1, isBossQuest: true };
+        } else {
+            this.currentQuest = quests[Math.floor(Math.random() * quests.length)];
+        }
     },
 
     _checkQuestProgress(event, data) {
         if (!this.currentQuest || this.questCompleted) return;
         const q = this.currentQuest;
-        if (q.id === 'hunter' && event === 'kill' && data && data.type === 'skeleton') {
-            this.questProgress++;
+
+        if (q.id === 'hunter' && event === 'kill') {
+            this.questProgress++; // Herhangi bir öldürme sayılır
         }
         if (q.id === 'shadow' && event === 'floor_cleared') {
             if (!this.playerHitThisFloor) this.questProgress = 1;
@@ -443,13 +521,22 @@ const GameEngine = {
         if (q.id === 'alchemist' && event === 'potion_used') {
             this.questProgress++;
         }
+        if (q.id === 'rescuer' && event === 'npc_rescued') {
+            this.questProgress++;
+        }
+        if (q.id === 'treasure' && event === 'chest_opened') {
+            this.questProgress++;
+        }
+
         if (this.questProgress >= q.target) {
             this.questCompleted = true;
-            this.player.gold += 50;
-            this.addLog(`✅ GÖREV TAMAMLANDI: ${q.title}! +50 Altın!`, "loot");
+            // Ölçekli ödül: kat * 2 + 30
+            const goldReward = 30 + Math.floor(this.floor * 2.5);
+            this.player.gold += goldReward;
+            this.addLog(`✅ GÖREV TAMAMLANDI: ${q.title}! +${goldReward} Altın!`, "loot");
             this.textParticles.push(new TextParticle(
                 this.player.x, this.player.y - 40,
-                '+50g GÖREV!', 'var(--neon-gold)', '10px', true
+                `+${goldReward}g GÖREV!`, 'var(--neon-gold)', '10px', true
             ));
             this._checkAchievements();
         }
@@ -458,9 +545,13 @@ const GameEngine = {
     // ─── BAŞARIM SİSTEMİ ───
     _checkAchievements() {
         const defs = [
-            { key: 'dungeon_conqueror', name: 'Zindan Fatihi', icon: '🏰', cond: () => this.floor >= 10 },
-            { key: 'slime_slayer',      name: 'Balçık Katili', icon: '⚔️',  cond: () => parseInt(localStorage.getItem('pk_slimeKills') || 0) >= 100 },
-            { key: 'millionaire',       name: 'Milyarder',     icon: '💰', cond: () => this.player && this.player.gold >= 500 },
+            { key: 'first_boss',        name: 'İlk Zafer',       icon: '🏆', cond: () => this.floor > 10 },
+            { key: 'explorer',          name: 'Zindan Kaşifi',   icon: '🗺️', cond: () => this.floor >= 50 },
+            { key: 'dungeon_conqueror', name: 'Zindan Fatihi',   icon: '🏰', cond: () => this.floor >= 100 },
+            { key: 'slime_slayer',      name: 'Balçık Katili',   icon: '⚔️', cond: () => parseInt(localStorage.getItem('pk_slimeKills') || 0) >= 100 },
+            { key: 'millionaire',       name: 'Milyarder',       icon: '💰', cond: () => this.player && this.player.gold >= 1000 },
+            { key: 'rescuer_hero',      name: 'Büyük Kurtarıcı',icon: '🦸', cond: () => parseInt(localStorage.getItem('pk_rescues') || '0') >= 10 },
+            { key: 'centurion',         name: '100 Öldürme',     icon: '💯', cond: () => this.killsCount >= 100 },
         ];
         defs.forEach(def => {
             const already = localStorage.getItem(`pk_ach_${def.key}`);
@@ -566,15 +657,55 @@ const GameEngine = {
     // ─── HİKAYE DİYALOĞU ───
     showStoryDialog(floor) {
         const stories = {
-            5: {
-                icon: '💀',
-                title: 'KARANLIĞIN KAPISI',
-                text: 'Adımların yankılanıyor... Duvarlar nefes alıyor gibi. Zindan\'ın beşinci katında Muhafız\'ın ruhu seni bekliyor. Her önceki savaşın bu an için bir hazırlıktı. Hazır mısın, kahraman?'
-            },
             10: {
+                icon: '☠️',
+                title: 'ZİNDAN MUHAFIZI',
+                text: 'İlk bölümü geçtin kahraman! Ama zindan henüz başlıyor... Gölge Muhafızı seni bekliyor. Bu savaşı kazan ve daha derin katmanlara in!'
+            },
+            20: {
+                icon: '🕷️',
+                title: 'GÖLGE MAĞARASI',
+                text: 'Gölgelerin içinde gözler parıldıyor... Goblinler ve zombiler bu mağaranın sakinleri. Gölge Lordu tahta oturuyor. Onun zincirlerini kırmadan ilerleyemezsin!'
+            },
+            30: {
+                icon: '🔥',
+                title: 'ALEV KRALLİĞI',
+                text: 'Yer altı lavları tavandan damlıyor. Örümcekler ve trollerin ülkesini geçtin — şimdi Alev Devinin kapısındasın. Zırh eriyebilir, yürek eriymez!'
+            },
+            40: {
+                icon: '❄️',
+                title: 'DONMUŞ TUNDRA',
+                text: 'Soğuk kemikleri donduruyor... Cadılar ve trollerin ülkesini geride bıraktın. Buz Golemi Efendisi buz kristalleri arasında seni bekliyor. Donmadan önce onu bitir!'
+            },
+            50: {
+                icon: '🌿',
+                title: 'ORMAN TAPINAĞI',
+                text: 'Yer altındaki kadim orman... Buz golemlerinin soğuğundan kurtuldun. Orman Canavarı kutsal ağacı koruyor. Bu tapmağı geçmeden zindan seni bırakmaz!'
+            },
+            60: {
+                icon: '😈',
+                title: 'ŞEYTAN KALESİ',
+                text: 'Kükürt kokusu havayı dolduruyor. Demonlar ve cadıların bölgesini aştın. Şeytan Prensi tahtından inerek seni bekliyor. En büyük günahını sormayacak — sadece savaşacak!'
+            },
+            70: {
+                icon: '🌌',
+                title: 'GÖKYÜZÜ KALESİ',
+                text: 'Bulutların üzerinde bir kale... Yokluk hayaletleri burada dolaşıyor. Gökyüzü İlahı sonsuza dek hüküm sürüyor. Ya sen onu ya da o seni sonsuza gönderecek!'
+            },
+            80: {
                 icon: '🌑',
-                title: 'SON YÜZLEŞME',
-                text: 'Sonunda... Zindanın en derin noktası. Kaos Lordu\'nun nefesi tavandan damlıyor. Tüm zindan bu anı bekledi. Ya bu karanlığı alt edeceksin, ya da sonsuza dek burada kalacaksın. Seçim senin...'
+                title: 'YOKLUK ALEMİ',
+                text: 'Gerçeklik burada yok olup gidiyor... Ejder yavruları ve wraith\'lar bu boyutun yaratıkları. Yokluk Kraliçesi seni kendi alemine çekmeye çalışacak. Direnmek zorundasın!'
+            },
+            90: {
+                icon: '🐉',
+                title: 'EJDER YUVASI',
+                text: 'En güçlü ejderlerin diyarı! Uçurum Lordları burada geziniyor. Ejder Efendisi binlerce yıldır uyuyor — ve sen onu uyandırdın. Son boss\'a giden yolun son adımı!'
+            },
+            100: {
+                icon: '👹',
+                title: 'KARANLĞIN LORDU — SON SAVAŞ',
+                text: 'Sonunda... En derinde. 100 katlık zindanın sonunda Karanlığın Lordu seni bekliyor. Tüm güçlerin, tüm ekipmanın, tüm cesaretini topla. Buradan zaferle çıkarsan efsane olursun. Hazır mısın?'
             }
         };
         const s = stories[floor];
@@ -594,11 +725,15 @@ const GameEngine = {
 
     // ─── UNVAN SİSTEMİ ───
     _getPlayerTitle() {
-        if (this.floor >= 10) return 'Zindan Fatihi';
-        if (localStorage.getItem('pk_ach_dungeon_conqueror')) return 'Zindan Fatihi';
-        if (this.killsCount >= 100) return 'Efsanevi Katil';
-        if (this.floor >= 7)  return 'Zindan Avcısı';
-        if (this.floor >= 4)  return 'Cesur Kahraman';
+        if (this.floor >= 100 || localStorage.getItem('pk_ach_dungeon_conqueror')) return 'Zindan Fatihi';
+        if (this.floor >= 90)  return 'Efsane Kahraman';
+        if (this.floor >= 70)  return 'Kaos Lordu';
+        if (this.floor >= 50)  return 'Zindan Efendisi';
+        if (this.floor >= 30)  return 'Cesur Savaşçı';
+        if (this.floor >= 20 || this.killsCount >= 100) return 'Efsanevi Katil';
+        if (this.floor >= 10)  return 'Zindan Avcısı';
+        if (this.floor >= 5)   return 'Cesur Kahraman';
+        if (parseInt(localStorage.getItem('pk_rescues') || '0') >= 5) return 'Büyük Kurtarıcı';
         return 'Çaylak Kaşif';
     },
 
@@ -880,11 +1015,12 @@ const GameEngine = {
         document.getElementById('floor-val').innerText = this.floor;
         document.getElementById('gold-val').innerText = this.player.gold;
 
-        // 1b. Can (lives) kalpleri
+        // 1b. Can (lives) kalpleri (meta upgrade ile 5'e kadar çıkabilir)
         const livesEl = document.getElementById('lives-display');
         if (livesEl) {
             livesEl.innerHTML = '';
-            for (let i = 0; i < 3; i++) {
+            const maxHearts = Math.max(3, this.lives);
+            for (let i = 0; i < maxHearts; i++) {
                 const h = document.createElement('span');
                 h.className = i < this.lives ? 'life-heart active' : 'life-heart empty';
                 h.textContent = '♥';
@@ -1488,8 +1624,8 @@ const GameEngine = {
             if (this.boss.hp <= 0) {
                 this.boss = null;
                 document.getElementById('boss-hud').classList.remove('active');
-                // Kat 10 boss'u yenildi → zafer!
-                if (this.floor === 10) {
+                // Kat 100 boss'u yenildi → ZAFERİ KAZAN!
+                if (this.floor === 100) {
                     setTimeout(() => this.showVictory(), 1200);
                 }
             }
@@ -1503,6 +1639,9 @@ const GameEngine = {
 
         // 3.5. Tuzakları Güncelle
         this.traps.forEach(trap => trap.update(this.player, this));
+
+        // 3.6. Esir NPC'leri güncelle (animasyon)
+        this.captives.forEach(npc => npc.update());
 
         // Eğitim sayacı
         if (this.tutorialStep >= 0) {
@@ -1608,6 +1747,9 @@ const GameEngine = {
         // Ganimet Eşyalarını Çiz
         this.items.forEach(item => item.draw(this.ctx, World.camera));
 
+        // Esir NPC'leri Çiz
+        this.captives.forEach(npc => npc.draw(this.ctx, World.camera));
+
         // Satıcıyı Çiz
         if (this.merchant) {
             this.merchant.draw(this.ctx, World.camera);
@@ -1638,11 +1780,21 @@ const GameEngine = {
         // Sarsıntı matrisini kapat
         this.ctx.restore();
 
-        // ─── ZİNDAN TEMASı (BIOME) RENK OVERLAY ───
+        // ─── ZİNDAN BÖLGE RENK OVERLAY (10 farklı bölge) ───
         if (this.state === 'playing') {
+            const zone = Math.ceil(this.floor / 10);
             let biomeColor = null;
-            if (this.floor === 5 || this.floor === 10) biomeColor = 'rgba(150,0,255,0.08)';      // Boss: mor
-            else if (this.floor >= 6 && this.floor <= 9) biomeColor = 'rgba(255,60,0,0.07)';    // Lav: kırmızı
+            if (zone === 2)  biomeColor = 'rgba(80,0,80,0.07)';       // Gölge Mağarası
+            else if (zone === 3)  biomeColor = 'rgba(100,50,0,0.08)'; // Goblin/Zombi
+            else if (zone === 4)  biomeColor = 'rgba(200,60,0,0.08)'; // Alev Krallığı
+            else if (zone === 5)  biomeColor = 'rgba(0,80,180,0.09)'; // Donmuş Tundra
+            else if (zone === 6)  biomeColor = 'rgba(0,100,30,0.08)'; // Orman Tapınağı
+            else if (zone === 7)  biomeColor = 'rgba(180,0,0,0.10)';  // Şeytan Kalesi
+            else if (zone === 8)  biomeColor = 'rgba(80,180,255,0.07)';// Gökyüzü Kalesi
+            else if (zone === 9)  biomeColor = 'rgba(0,0,40,0.13)';   // Yokluk Alemi
+            else if (zone === 10) biomeColor = 'rgba(200,80,0,0.10)'; // Ejder Yuvası / Uçurum
+            // Boss katında ek karanlık overlay
+            if (this.floor % 10 === 0) biomeColor = 'rgba(150,0,255,0.14)';
             if (biomeColor) {
                 this.ctx.save();
                 this.ctx.fillStyle = biomeColor;
@@ -1870,11 +2022,13 @@ const GameEngine = {
 
     generateShopItems() {
         const isSpecial = this.merchant && this.merchant.isSpecial;
+        // Fiyat çarpanı: her 10 katta %40 artar (logaritmik)
+        const floorPriceMult = 1.0 + Math.floor((this.floor - 1) / 10) * 0.4;
         this.shopItems = [];
 
         // 1. Birinci Slot: İksir (Sağlık veya Hız)
         const potType = Math.random() < 0.6 ? 'potion_red' : 'potion_blue';
-        const potPrice = isSpecial ? 30 : 15;
+        const potPrice = Math.floor((isSpecial ? 30 : 15) * floorPriceMult);
         this.shopItems.push({
             type: potType,
             name: potType === 'potion_red' ? 'Büyük Sağlık İksiri' : 'Kadim Hız İksiri',
@@ -1917,11 +2071,11 @@ const GameEngine = {
             const displayName = tempItem.name;
             const description = tempItem.description;
 
-            // Fiyatı belirle
+            // Fiyatı belirle (kata göre ölçekli)
             let price = 25;
-            if (rarity === 'common') price = Math.floor(Math.random() * 10) + 25; // 25-35
-            else if (rarity === 'rare') price = Math.floor(Math.random() * 20) + 50; // 50-70
-            else if (rarity === 'legendary') price = Math.floor(Math.random() * 40) + 120; // 120-160
+            if (rarity === 'common') price = Math.floor((Math.random() * 12 + 22) * floorPriceMult);
+            else if (rarity === 'rare') price = Math.floor((Math.random() * 22 + 48) * floorPriceMult);
+            else if (rarity === 'legendary') price = Math.floor((Math.random() * 50 + 110) * floorPriceMult);
 
             this.shopItems.push({
                 type: `${category}_${rarity}`,

@@ -501,6 +501,9 @@ class Chest {
 
         this.opened = true;
 
+        // Quest takibi
+        if (game._checkQuestProgress) game._checkQuestProgress('chest_opened', null);
+
         // Sandık açma sesi
         SoundEngine.playChestOpen();
         if (!this.locked) game.addLog("Sandık açıldı! Eşyalar saçılıyor.", "loot");
@@ -624,9 +627,9 @@ class Enemy {
     }
 
     initEnemyStats() {
-        // Zindan derinliğine (kat seviyesine) göre zorluk ölçekleme formülü
-        // Kat 1'de çarpan = 1.0, her kat için +15% güçlenme
-        const floorMultiplier = 1.0 + (window.GameEngine ? window.GameEngine.floor - 1 : 0) * 0.15;
+        // Logaritmik ölçekleme — 100 kat için dengeli (kat 1=1.0, kat 50=4.5, kat 100≈5.0)
+        const floor = window.GameEngine ? window.GameEngine.floor : 1;
+        const floorMultiplier = Math.min(5.0, 1.0 + Math.sqrt(Math.max(0, floor - 1)) * 0.4);
 
         if (this.type === 'slime') {
             this.name = 'Jöle Balçık';
@@ -662,9 +665,114 @@ class Enemy {
             this.speed = 1.1;
             this.atk = Math.floor(10 * floorMultiplier);
             this.xpReward = Math.floor(25 * floorMultiplier);
-            this.goldReward = Math.floor((Math.random() * 10 + 10) * floorMultiplier); // 10-20
+            this.goldReward = Math.floor((Math.random() * 8 + 8) * floorMultiplier);
             this.width = 48;
             this.height = 48;
+        } else if (this.type === 'goblin') {
+            this.name = 'Goblin Savaşçısı';
+            this._spriteOverride = 'slime_fire';
+            this.hp = Math.floor(22 * floorMultiplier);
+            this.maxHp = this.hp;
+            this.speed = 1.7;
+            this.atk = Math.floor(9 * floorMultiplier);
+            this.xpReward = Math.floor(20 * floorMultiplier);
+            this.goldReward = Math.floor((Math.random() * 9 + 10) * floorMultiplier);
+            this.debuffType = null;
+        } else if (this.type === 'zombie') {
+            this.name = 'Çürümüş Zombi';
+            this._spriteOverride = 'skeleton';
+            this.hp = Math.floor(50 * floorMultiplier);
+            this.maxHp = this.hp;
+            this.speed = 0.65;
+            this.atk = Math.floor(14 * floorMultiplier);
+            this.xpReward = Math.floor(30 * floorMultiplier);
+            this.goldReward = Math.floor((Math.random() * 10 + 12) * floorMultiplier);
+            this.debuffType = 'poison';
+        } else if (this.type === 'spider') {
+            this.name = 'Zehir Örümceği';
+            this._spriteOverride = 'slime_shadow';
+            this.hp = Math.floor(28 * floorMultiplier);
+            this.maxHp = this.hp;
+            this.speed = 1.9;
+            this.atk = Math.floor(8 * floorMultiplier);
+            this.xpReward = Math.floor(22 * floorMultiplier);
+            this.goldReward = Math.floor((Math.random() * 8 + 9) * floorMultiplier);
+            this.debuffType = 'poison';
+        } else if (this.type === 'troll') {
+            this.name = 'Kaya Trolü';
+            this._spriteOverride = 'skeleton';
+            this.hp = Math.floor(90 * floorMultiplier);
+            this.maxHp = this.hp;
+            this.speed = 0.6;
+            this.atk = Math.floor(24 * floorMultiplier);
+            this.xpReward = Math.floor(60 * floorMultiplier);
+            this.goldReward = Math.floor((Math.random() * 18 + 22) * floorMultiplier);
+            this.attackCooldownMax = 120;
+            this.debuffType = 'slow';
+            this.width = 56; this.height = 56;
+        } else if (this.type === 'witch') {
+            this.name = 'Gölge Cadısı';
+            this._spriteOverride = 'slime_shadow';
+            this.hp = Math.floor(36 * floorMultiplier);
+            this.maxHp = this.hp;
+            this.speed = 0.85;
+            this.atk = Math.floor(17 * floorMultiplier);
+            this.xpReward = Math.floor(42 * floorMultiplier);
+            this.goldReward = Math.floor((Math.random() * 16 + 18) * floorMultiplier);
+            this.debuffType = 'burn';
+        } else if (this.type === 'ice_golem') {
+            this.name = 'Buz Golemi';
+            this._spriteOverride = 'skeleton';
+            this.hp = Math.floor(75 * floorMultiplier);
+            this.maxHp = this.hp;
+            this.speed = 0.75;
+            this.atk = Math.floor(19 * floorMultiplier);
+            this.xpReward = Math.floor(52 * floorMultiplier);
+            this.goldReward = Math.floor((Math.random() * 20 + 24) * floorMultiplier);
+            this.debuffType = 'slow';
+            this.width = 56; this.height = 56;
+        } else if (this.type === 'demon') {
+            this.name = 'Alev Şeytanı';
+            this._spriteOverride = 'slime_fire';
+            this.hp = Math.floor(58 * floorMultiplier);
+            this.maxHp = this.hp;
+            this.speed = 1.4;
+            this.atk = Math.floor(25 * floorMultiplier);
+            this.xpReward = Math.floor(65 * floorMultiplier);
+            this.goldReward = Math.floor((Math.random() * 24 + 28) * floorMultiplier);
+            this.debuffType = 'burn';
+        } else if (this.type === 'void_wraith') {
+            this.name = 'Yokluk Hayaleti';
+            this._spriteOverride = 'slime_shadow';
+            this.hp = Math.floor(50 * floorMultiplier);
+            this.maxHp = this.hp;
+            this.speed = 2.1;
+            this.atk = Math.floor(21 * floorMultiplier);
+            this.xpReward = Math.floor(70 * floorMultiplier);
+            this.goldReward = Math.floor((Math.random() * 26 + 30) * floorMultiplier);
+            this.debuffType = 'poison';
+        } else if (this.type === 'dragon_spawn') {
+            this.name = 'Ejder Yavrusu';
+            this._spriteOverride = 'slime_fire';
+            this.hp = Math.floor(70 * floorMultiplier);
+            this.maxHp = this.hp;
+            this.speed = 1.3;
+            this.atk = Math.floor(30 * floorMultiplier);
+            this.xpReward = Math.floor(85 * floorMultiplier);
+            this.goldReward = Math.floor((Math.random() * 32 + 38) * floorMultiplier);
+            this.debuffType = 'burn';
+            this.width = 56; this.height = 56;
+        } else if (this.type === 'abyss_lord') {
+            this.name = 'Uçurum Lordu';
+            this._spriteOverride = 'slime_shadow';
+            this.hp = Math.floor(100 * floorMultiplier);
+            this.maxHp = this.hp;
+            this.speed = 1.6;
+            this.atk = Math.floor(35 * floorMultiplier);
+            this.xpReward = Math.floor(110 * floorMultiplier);
+            this.goldReward = Math.floor((Math.random() * 40 + 48) * floorMultiplier);
+            this.debuffType = 'poison';
+            this.attackCooldownMax = 55;
         }
     }
 
@@ -901,8 +1009,9 @@ class Enemy {
             ctx.filter = 'brightness(1.5) sepia(1) hue-rotate(-50deg) saturate(5)'; // Kırmızımsı hasar parlaması
         }
 
-        // Sprite anahtarını bul
-        let spriteKey = `${this.type}_idle${this.animFrame}`;
+        // Sprite anahtarını bul (yeni düşman türleri için spriteOverride kullan)
+        const spriteBase = this._spriteOverride || this.type;
+        let spriteKey = `${spriteBase}_idle${this.animFrame}`;
         if (this.facing === 'left') spriteKey += '_flipped';
 
         SpriteEngine.draw(ctx, spriteKey, drawX, drawY, this.width, this.height);
@@ -2130,6 +2239,128 @@ class Shrine {
     }
 }
 
+// --- 6b. KURTARILABİLİR ESİR NPC ---
+class CaptiveNPC {
+    constructor(x, y, type) {
+        this.x = x;
+        this.y = y;
+        this.type = type || ['peasant', 'soldier', 'mage', 'merchant'][Math.floor(Math.random() * 4)];
+        this.rescued = false;
+        this.interactRange = 52;
+        this.width = 40;
+        this.height = 40;
+        this._wobble = Math.random() * Math.PI * 2;
+    }
+
+    update() {
+        this._wobble += 0.04;
+    }
+
+    rescue(game) {
+        if (this.rescued) return;
+        this.rescued = true;
+        const floor = game.floor || 1;
+
+        if (this.type === 'peasant') {
+            const gold = Math.floor(20 + floor * 2.5 + Math.random() * 30);
+            game.player.gold += gold;
+            game.addLog(`🧑‍🌾 Köylü kurtarıldı! Minnetle +${gold} Altın verdi.`, 'loot');
+            game.textParticles.push(new TextParticle(this.x, this.y - 35, `+${gold}g ÖDÜL!`, 'var(--neon-gold)', '10px', true));
+        } else if (this.type === 'soldier') {
+            const bonus = 1 + Math.floor(floor / 25);
+            game.player.stats.atk += bonus;
+            game.addLog(`⚔️ Asker kurtarıldı! Savaş sırrı öğretti: Kalıcı +${bonus} Saldırı!`, 'level');
+            game.textParticles.push(new TextParticle(this.x, this.y - 35, `+${bonus} SALDIRI!`, '#ff4444', '10px', true));
+        } else if (this.type === 'mage') {
+            const bonus = 10 + Math.floor(floor / 8) * 5;
+            game.player.stats.maxHp += bonus;
+            game.player.hp = Math.min(game.player.getMaxHp(), game.player.hp + bonus);
+            game.addLog(`🔮 Büyücü kurtarıldı! Hayat sırrını paylaştı: Kalıcı +${bonus} Maks Can!`, 'level');
+            game.textParticles.push(new TextParticle(this.x, this.y - 35, `+${bonus} MAX CAN!`, 'var(--neon-green)', '10px', true));
+        } else if (this.type === 'merchant') {
+            const gold = Math.floor(45 + floor * 4 + Math.random() * 50);
+            game.player.gold += gold;
+            game.addLog(`💰 Tüccar kurtarıldı! Hazinesini paylaştı: +${gold} Altın!`, 'loot');
+            game.textParticles.push(new TextParticle(this.x, this.y - 35, `+${gold}g HAZINE!`, 'var(--neon-gold)', '11px', true));
+        }
+
+        // İstatistik izleme
+        const prev = parseInt(localStorage.getItem('pk_rescues') || '0');
+        localStorage.setItem('pk_rescues', prev + 1);
+
+        // Quest ve başarım bildirimi
+        if (game._checkQuestProgress) game._checkQuestProgress('npc_rescued', null);
+        if (game._checkAchievements) game._checkAchievements();
+
+        game.triggerScreenShake(5);
+        if (window.SoundEngine) SoundEngine.playLevelUp();
+
+        for (let p = 0; p < 15; p++) {
+            game.particles.push(new Particle(
+                this.x, this.y,
+                '#ffd700',
+                (Math.random() - 0.5) * 7,
+                (Math.random() - 0.5) * 7,
+                Math.random() * 4 + 2, 35
+            ));
+        }
+    }
+
+    draw(ctx, camera) {
+        if (this.rescued) return;
+        const dx = this.x - camera.x;
+        const dy = this.y - camera.y + Math.sin(this._wobble) * 2;
+
+        const icons   = { peasant: '🧑', soldier: '⚔️', mage: '🔮', merchant: '💰' };
+        const colors  = { peasant: '#ffd700', soldier: '#ff6600', mage: '#b026ff', merchant: '#00f0ff' };
+        const labels  = { peasant: 'KÖYLÜ', soldier: 'ASKER', mage: 'BÜYÜCÜ', merchant: 'TÜCCAR' };
+        const col = colors[this.type] || '#fff';
+
+        ctx.save();
+
+        // Kafes arka planı
+        ctx.fillStyle = 'rgba(40,25,15,0.75)';
+        ctx.strokeStyle = '#888';
+        ctx.lineWidth = 2;
+        ctx.fillRect(dx - 18, dy - 22, 36, 42);
+        ctx.strokeRect(dx - 18, dy - 22, 36, 42);
+
+        // Kafes yatay çubukları
+        ctx.strokeStyle = '#666';
+        ctx.lineWidth = 1.5;
+        for (let b = -10; b <= 10; b += 10) {
+            ctx.beginPath(); ctx.moveTo(dx + b, dy - 22); ctx.lineTo(dx + b, dy + 20); ctx.stroke();
+        }
+
+        // Parıltı kenarlığı
+        ctx.shadowColor = col;
+        ctx.shadowBlur = 14;
+        ctx.strokeStyle = col;
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(dx - 20, dy - 24, 40, 46);
+        ctx.shadowBlur = 0;
+
+        // Emoji ikonu
+        ctx.font = '18px serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(icons[this.type] || '❓', dx, dy + 10);
+
+        // İpucu: [E] KURTAR (yanıp söner)
+        if (Math.floor(Date.now() / 600) % 2 === 0) {
+            ctx.font = "5px 'Press Start 2P'";
+            ctx.fillStyle = col;
+            ctx.strokeStyle = '#000'; ctx.lineWidth = 2;
+            ctx.strokeText('[E] KURTAR', dx, dy - 30);
+            ctx.fillText('[E] KURTAR', dx, dy - 30);
+            ctx.font = "5px 'Press Start 2P'";
+            ctx.fillStyle = '#ccc';
+            ctx.fillText(labels[this.type] || '', dx, dy - 38);
+        }
+
+        ctx.restore();
+    }
+}
+
 // --- 7. GİZEMLİ SATICI (MERCHANT NPC) ---
 class Merchant {
     constructor(x, y, isSpecial = false) {
@@ -2166,7 +2397,8 @@ class Merchant {
             if (!this.isPlayerNear) {
                 this.isPlayerNear = true;
                 if (this.isSpecial) {
-                    game.addLog(`ÖZEL SATICI: "5. Katın katlarına ulaştın kahraman! Sana en nadir ve efsanevi mallarımı getirdim... [E Tuşu]"`, "level");
+                    const fl = window.GameEngine ? window.GameEngine.floor : '?';
+                    game.addLog(`ÖZEL SATICI: "${fl}. Kata ulaştın kahraman! Sana en nadir ve efsanevi mallarımı getirdim... [E Tuşu]"`, "level");
                 } else {
                     game.addLog(`Gizemli Satıcı: "Sıcak altın kokusunu uzaklardan aldım... Malzemelerime bir bak şövalye! [E Tuşu]"`, "loot");
                 }
@@ -2223,10 +2455,25 @@ class Boss {
         this.height = 96;
         this.radius = 32; // Büyük çarpışma dairesi
         
-        // Zorluk seviyesi ölçekleme çarpanı
-        const floorMultiplier = 1.0 + (window.GameEngine ? window.GameEngine.floor - 1 : 0) * 0.15;
+        // Boss ölçekleme: sqrt-tabanlı, max 8x güç
+        const bossFloor = window.GameEngine ? window.GameEngine.floor : 10;
+        const floorMultiplier = Math.min(8.0, 1.0 + Math.sqrt(Math.max(0, bossFloor - 1)) * 0.65);
 
-        this.name = "ZİNDAN MUHAFIZI";
+        // Her bölgede farklı boss ismi
+        const bossNames = [
+            'ZİNDAN MUHAFIZI',       // 10
+            'GÖLGE LORDU',           // 20
+            'ALEV DEVİ',             // 30
+            'BUZ GOLEMI EFENDİSİ',  // 40
+            'ORMAN CANAVARĞI',       // 50
+            'ŞEYTAN PRENSİ',         // 60
+            'GÖKYÜZÜ İLAHI',        // 70
+            'YOKLUK KRALİÇESİ',     // 80
+            'EJDER EFENDİSİ',       // 90
+            'KARANLİĞIN LORDU',     // 100
+        ];
+        const zone = Math.ceil(bossFloor / 10);
+        this.name = bossNames[Math.min(zone - 1, 9)] || 'ZİNDAN MUHAFIZI';
         // Temel statlar (Faz 1 değerleri) — kattaki zorlukla ölçeklenir
         this.baseAtk   = Math.floor(20 * floorMultiplier);
         this.baseSpeed = 0.75;
