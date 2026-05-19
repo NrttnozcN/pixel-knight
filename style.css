@@ -45,6 +45,8 @@ body {
     font-family: var(--font-modern);
     overflow: hidden;
     height: 100vh;
+    height: -webkit-fill-available; /* iOS Safari toolbar fix */
+    height: 100dvh;                 /* Modern: toolbar-aware viewport */
     display: flex;
     justify-content: center;
     align-items: center;
@@ -1428,6 +1430,13 @@ h1.pixel-text {
 @media (pointer: coarse), (max-width: 900px) {
     .sidebar-combat-log-panel { display: none !important; }
 
+    /* html/body yüksekliği toolbar'lı tarayıcılarda doğru hesaplansın */
+    html { height: 100%; }
+    body {
+        height: 100dvh;
+        height: -webkit-fill-available;
+    }
+
     /* iOS Safari ve Android Chrome tam ekran fix */
     .dashboard-wrapper {
         width: 100vw;
@@ -1575,8 +1584,8 @@ h1.pixel-text {
     letter-spacing: 0.5px;
 }
 
-/* ─── Telefon YATAY (landscape ≤ 500px yükseklik) — TAM EKRAN MOD ─── */
-@media (max-height: 500px) and (orientation: landscape) {
+/* ─── Telefon YATAY (landscape ≤ 600px yükseklik) — TAM EKRAN MOD ─── */
+@media (max-height: 600px) and (orientation: landscape) {
     /* Tüm chrome'u gizle → canvas full-screen */
     .game-header                  { display: none !important; }
     .horizontal-dashboard-bottom  { display: none !important; }
@@ -1586,10 +1595,17 @@ h1.pixel-text {
         overflow: hidden;
     }
 
+    /* Header gizlenince 70px çıkarma — tam doldur */
+    .dashboard-body {
+        height: 100% !important;
+    }
+
     /* Padding sıfırla */
     .game-viewport-container {
         padding: 0 !important;
         gap: 0 !important;
+        width: 100%;
+        height: 100%;
     }
 
     /* Canvas tam dolar */
@@ -1598,6 +1614,7 @@ h1.pixel-text {
         border: none;
         flex: 1;
         min-height: 0;
+        width: 100%;
     }
 
     /* Mini floating HUD göster */
