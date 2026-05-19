@@ -533,7 +533,7 @@ class Chest {
 
             // Ganimeti sandığın tam merkezinden hafif yukarı fırlatarak oluştur
             const floorMult = 1 + (window.GameEngine ? window.GameEngine.floor - 1 : 0) * 0.1;
-            const chestGold = Math.floor((Math.random() * 10 + 15) * floorMult); // 15-25 base
+            const chestGold = Math.floor((Math.random() * 5 + 6) * floorMult); // 6-11 base
             const lootItem = new Item(this.x, this.y - 10, type, type === 'gold' ? chestGold : 1);
             game.items.push(lootItem);
         }
@@ -638,7 +638,7 @@ class Enemy {
             this.speed = 0.9;
             this.atk = Math.floor(5 * floorMultiplier);
             this.xpReward = Math.floor(10 * floorMultiplier);
-            this.goldReward = Math.floor((Math.random() * 7 + 8) * floorMultiplier);  // 8-15
+            this.goldReward = Math.floor((Math.random() * 3 + 3) * floorMultiplier);  // 3-6
             this.debuffType = 'slow'; // Yeşil balçık → yavaşlatır
         } else if (this.type === 'slime_fire') {
             this.name = 'Lav Balçığı';
@@ -647,7 +647,7 @@ class Enemy {
             this.speed = 1.2;
             this.atk = Math.floor(12 * floorMultiplier);
             this.xpReward = Math.floor(20 * floorMultiplier);
-            this.goldReward = Math.floor((Math.random() * 10 + 12) * floorMultiplier); // 12-22
+            this.goldReward = Math.floor((Math.random() * 4 + 5) * floorMultiplier); // 5-9
             this.debuffType = 'burn'; // Kırmızı balçık → yakar + regen engeller
         } else if (this.type === 'slime_shadow') {
             this.name = 'Karanlık Balçık';
@@ -656,7 +656,7 @@ class Enemy {
             this.speed = 1.5;
             this.atk = Math.floor(18 * floorMultiplier);
             this.xpReward = Math.floor(35 * floorMultiplier);
-            this.goldReward = Math.floor((Math.random() * 15 + 15) * floorMultiplier); // 15-30
+            this.goldReward = Math.floor((Math.random() * 5 + 7) * floorMultiplier); // 7-12
             this.debuffType = 'poison'; // Mor balçık → zehirler + regen engeller
         } else if (this.type === 'skeleton') {
             this.name = 'İskelet Savaşçı';
@@ -665,7 +665,7 @@ class Enemy {
             this.speed = 1.1;
             this.atk = Math.floor(10 * floorMultiplier);
             this.xpReward = Math.floor(25 * floorMultiplier);
-            this.goldReward = Math.floor((Math.random() * 8 + 8) * floorMultiplier);
+            this.goldReward = Math.floor((Math.random() * 4 + 4) * floorMultiplier);
             this.width = 48;
             this.height = 48;
         } else if (this.type === 'goblin') {
@@ -676,7 +676,7 @@ class Enemy {
             this.speed = 1.7;
             this.atk = Math.floor(9 * floorMultiplier);
             this.xpReward = Math.floor(20 * floorMultiplier);
-            this.goldReward = Math.floor((Math.random() * 9 + 10) * floorMultiplier);
+            this.goldReward = Math.floor((Math.random() * 4 + 5) * floorMultiplier);
             this.debuffType = null;
         } else if (this.type === 'zombie') {
             this.name = 'Çürümüş Zombi';
@@ -686,7 +686,7 @@ class Enemy {
             this.speed = 0.65;
             this.atk = Math.floor(14 * floorMultiplier);
             this.xpReward = Math.floor(30 * floorMultiplier);
-            this.goldReward = Math.floor((Math.random() * 10 + 12) * floorMultiplier);
+            this.goldReward = Math.floor((Math.random() * 4 + 5) * floorMultiplier);
             this.debuffType = 'poison';
         } else if (this.type === 'spider') {
             this.name = 'Zehir Örümceği';
@@ -696,7 +696,7 @@ class Enemy {
             this.speed = 1.9;
             this.atk = Math.floor(8 * floorMultiplier);
             this.xpReward = Math.floor(22 * floorMultiplier);
-            this.goldReward = Math.floor((Math.random() * 8 + 9) * floorMultiplier);
+            this.goldReward = Math.floor((Math.random() * 3 + 4) * floorMultiplier);
             this.debuffType = 'poison';
         } else if (this.type === 'troll') {
             this.name = 'Kaya Trolü';
@@ -706,7 +706,7 @@ class Enemy {
             this.speed = 0.6;
             this.atk = Math.floor(24 * floorMultiplier);
             this.xpReward = Math.floor(60 * floorMultiplier);
-            this.goldReward = Math.floor((Math.random() * 18 + 22) * floorMultiplier);
+            this.goldReward = Math.floor((Math.random() * 6 + 8) * floorMultiplier);
             this.attackCooldownMax = 120;
             this.debuffType = 'slow';
             this.width = 56; this.height = 56;
@@ -718,7 +718,7 @@ class Enemy {
             this.speed = 0.85;
             this.atk = Math.floor(17 * floorMultiplier);
             this.xpReward = Math.floor(42 * floorMultiplier);
-            this.goldReward = Math.floor((Math.random() * 16 + 18) * floorMultiplier);
+            this.goldReward = Math.floor((Math.random() * 5 + 7) * floorMultiplier);
             this.debuffType = 'burn';
         } else if (this.type === 'ice_golem') {
             this.name = 'Buz Golemi';
@@ -728,7 +728,7 @@ class Enemy {
             this.speed = 0.75;
             this.atk = Math.floor(19 * floorMultiplier);
             this.xpReward = Math.floor(52 * floorMultiplier);
-            this.goldReward = Math.floor((Math.random() * 20 + 24) * floorMultiplier);
+            this.goldReward = Math.floor((Math.random() * 6 + 8) * floorMultiplier);
             this.debuffType = 'slow';
             this.width = 56; this.height = 56;
         } else if (this.type === 'demon') {
@@ -739,7 +739,7 @@ class Enemy {
             this.speed = 1.4;
             this.atk = Math.floor(25 * floorMultiplier);
             this.xpReward = Math.floor(65 * floorMultiplier);
-            this.goldReward = Math.floor((Math.random() * 24 + 28) * floorMultiplier);
+            this.goldReward = Math.floor((Math.random() * 7 + 9) * floorMultiplier);
             this.debuffType = 'burn';
         } else if (this.type === 'void_wraith') {
             this.name = 'Yokluk Hayaleti';
@@ -749,7 +749,7 @@ class Enemy {
             this.speed = 2.1;
             this.atk = Math.floor(21 * floorMultiplier);
             this.xpReward = Math.floor(70 * floorMultiplier);
-            this.goldReward = Math.floor((Math.random() * 26 + 30) * floorMultiplier);
+            this.goldReward = Math.floor((Math.random() * 7 + 9) * floorMultiplier);
             this.debuffType = 'poison';
         } else if (this.type === 'dragon_spawn') {
             this.name = 'Ejder Yavrusu';
@@ -759,7 +759,7 @@ class Enemy {
             this.speed = 1.3;
             this.atk = Math.floor(30 * floorMultiplier);
             this.xpReward = Math.floor(85 * floorMultiplier);
-            this.goldReward = Math.floor((Math.random() * 32 + 38) * floorMultiplier);
+            this.goldReward = Math.floor((Math.random() * 8 + 10) * floorMultiplier);
             this.debuffType = 'burn';
             this.width = 56; this.height = 56;
         } else if (this.type === 'abyss_lord') {
@@ -770,7 +770,7 @@ class Enemy {
             this.speed = 1.6;
             this.atk = Math.floor(35 * floorMultiplier);
             this.xpReward = Math.floor(110 * floorMultiplier);
-            this.goldReward = Math.floor((Math.random() * 40 + 48) * floorMultiplier);
+            this.goldReward = Math.floor((Math.random() * 10 + 12) * floorMultiplier);
             this.debuffType = 'poison';
             this.attackCooldownMax = 55;
         }
@@ -963,7 +963,7 @@ class Enemy {
         }
 
         // Altın Anahtar düşürme (%8 şans: slime_shadow ve skeleton)
-        if ((this.type === 'slime_shadow' || this.type === 'skeleton') && Math.random() < 0.08) {
+        if ((this.type === 'slime_shadow' || this.type === 'skeleton') && Math.random() < 0.03) {
             game.items.push(new Item(this.x, this.y, 'gold_key'));
             game.addLog("🗝️ Altın Anahtar düştü! Kilitli sandıkları açabilirsin.", "loot");
         }
@@ -1638,7 +1638,7 @@ class Player {
         // 2. İKSİR VEYA EKİPMAN TOPLAMA
         else {
             // Yığınlanabilir tüketilebilirler (iksirler) → aynı türde olanı bul, sayacı artır
-            const stackableTypes = ['potion_red', 'potion_blue', 'potion_big'];
+            const stackableTypes = ['potion_red', 'potion_blue', 'potion_big', 'gold_key'];
             if (stackableTypes.includes(item.type)) {
                 const existing = this.inventory.find(i => i.type === item.type);
                 if (existing) {

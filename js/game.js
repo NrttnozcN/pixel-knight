@@ -1416,8 +1416,8 @@ const GameEngine = {
 
     // Eşya satış fiyatını döndür (Pazarlıkçı: +%20)
     getSellPrice(item) {
-        if (item.type === 'potion_red' || item.type === 'potion_blue') return 10;
-        const prices = { common: 8, rare: 22, legendary: 65 };
+        if (item.type === 'potion_red' || item.type === 'potion_blue') return 5;
+        const prices = { common: 4, rare: 10, legendary: 30 };
         const base = prices[item.rarity] || 5;
         return this.player && this.player.hasBarter ? Math.floor(base * 1.2) : base;
     },
