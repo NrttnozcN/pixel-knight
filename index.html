@@ -141,7 +141,32 @@
                         </div>
                     </div>
 
-                    <!-- Katman 5: Demirci Ocağı -->
+                    <!-- Katman 5: Zafer Ekranı -->
+                    <div id="screen-victory" class="overlay-screen">
+                        <div class="screen-content">
+                            <div style="font-size:48px;margin-bottom:8px">🏆</div>
+                            <h2 class="pixel-text text-glow gold-color large-text" style="letter-spacing:3px">ZİNDAN FATİHİ</h2>
+                            <p class="description" style="color:var(--neon-gold)">Karanlığı alt ettin. Efsane doğdu!</p>
+                            <div class="stats-summary" id="victory-stats" style="margin:16px 0"></div>
+                            <button id="btn-victory-retry" class="action-btn pixel-text" style="background:linear-gradient(135deg,#b8860b,#ffd700);border-color:#ffd700;color:#000">
+                                ⚔️ YENİDEN OYNA
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Katman 6: Hikaye Diyaloğu -->
+                    <div id="screen-story" class="overlay-screen">
+                        <div class="screen-content" style="max-width:520px">
+                            <div id="story-icon" style="font-size:44px;margin-bottom:10px">⚔️</div>
+                            <h3 id="story-title" class="pixel-text text-glow" style="font-size:12px;margin-bottom:12px">HİKAYE</h3>
+                            <p id="story-text" class="description" style="font-size:13px;line-height:1.8;color:#ddd;max-width:420px"></p>
+                            <button id="btn-story-continue" class="action-btn pixel-text" style="font-size:10px;padding:12px 32px;margin-top:16px">
+                                DEVAM ET [ENTER]
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Katman 7: Demirci Ocağı (Package D) -->
                     <div id="screen-forge" class="overlay-screen">
                         <div class="screen-content shop-content">
                             <div class="level-up-banner">
@@ -219,6 +244,7 @@
                                     <span id="level-val" class="pixel-text level-num">1</span>
                                 </div>
                             </div>
+                            <div id="player-title-display" style="font-size:8px;color:var(--neon-gold);text-align:center;margin-bottom:2px;font-family:'Press Start 2P',monospace;letter-spacing:1px;display:none"></div>
                             <div class="bars-container">
                                 <div class="bar-group">
                                     <div class="bar-label">
@@ -391,6 +417,7 @@
         </div>
         <div id="tooltip-description" class="tooltip-desc">Eski bir şövalyenin kayıp kılıcı.</div>
         <div id="tooltip-sell-price" class="tooltip-sell-price"></div>
+        <button id="btn-tooltip-salvage" class="tooltip-salvage-btn" style="display:none">⚡ PARÇALA</button>
         <div class="tooltip-action-hint">Kuşanmak veya kullanmak için tıkla</div>
     </div>
 

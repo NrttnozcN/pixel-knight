@@ -31,6 +31,8 @@ const GameEngine = {
     crtEnabled: false,  // CRT filtre aktif mi?
     achievementNotif: null, // { text, timer }
     selectedClass: 'warrior', // Başlangıç sınıfı: warrior / ranger / mage
+    _hoveredInvIndex: -1,    // Tooltip üzerindeki envanter slot indeksi (salvage için)
+    _tooltipHideTimeout: null,
     
     // Portal animasyonu
     portalFrame: 1,
@@ -108,6 +110,23 @@ const GameEngine = {
             this.closeForge();
         });
 
+        document.getElementById('btn-victory-retry').addEventListener('click', () => {
+            this.closeVictory();
+            this.startNewGame();
+        });
+
+        document.getElementById('btn-story-continue').addEventListener('click', () => {
+            this.closeStoryDialog();
+        });
+
+        // Parçalama (Salvage) butonu tooltip içinde
+        document.getElementById('btn-tooltip-salvage').addEventListener('click', () => {
+            if (this._hoveredInvIndex >= 0) {
+                this.salvageItem(this._hoveredInvIndex);
+                this.hideTooltip();
+            }
+        });
+
         document.getElementById('btn-sort-inv').addEventListener('click', () => {
             if (this.state === 'playing' && this.player) this.sortInventory();
         });
@@ -124,6 +143,15 @@ const GameEngine = {
                 this.selectedClass = card.dataset.class;
             });
         });
+
+        // Tooltip üzerinde fareyle: salvage butonuna geçerken kapanmasın
+        const tooltipEl = document.getElementById('item-tooltip');
+        if (tooltipEl) {
+            tooltipEl.addEventListener('mouseenter', () => {
+                if (this._tooltipHideTimeout) { clearTimeout(this._tooltipHideTimeout); this._tooltipHideTimeout = null; }
+            });
+            tooltipEl.addEventListener('mouseleave', () => { this._hoveredInvIndex = -1; this.hideTooltip(); });
+        }
 
         // Tooltip'i fareyle takip et, ekrandan taşmayı önle
         document.addEventListener('mousemove', (e) => {
@@ -236,7 +264,12 @@ const GameEngine = {
 
         this.addLog(`Zindanın daha karanlık kısımlarına geçtin... Kat: ${this.floor}`, "level");
         this._checkAchievements();
-        
+
+        // Hikaye diyalogları: Kat 5 (ara boss) ve kat 10 (final boss)
+        if (this.floor === 5 || this.floor === 10) {
+            setTimeout(() => this.showStoryDialog(this.floor), 600);
+        }
+
         this.updateUI();
     },
 
@@ -446,6 +479,70 @@ const GameEngine = {
         document.getElementById('screen-gameover').classList.add('active');
 
         SoundEngine.stopMusic();
+    },
+
+    // ─── ZAFER EKRANI ───
+    showVictory() {
+        this.state = 'victory';
+        const title = this._getPlayerTitle();
+        const statsEl = document.getElementById('victory-stats');
+        if (statsEl) {
+            const classNames = { warrior: '⚔️ Savaşçı', ranger: '🏹 Nişancı', mage: '🔮 Büyücü' };
+            statsEl.innerHTML = `
+                <div class="stat-line"><span>Sınıf:</span> <span class="pixel-text">${classNames[this.selectedClass] || '⚔️ Savaşçı'}</span></div>
+                <div class="stat-line"><span>Unvan:</span> <span class="pixel-text gold-color">${title}</span></div>
+                <div class="stat-line"><span>Geçilen Kat:</span> <span id="summary-floor" class="pixel-text">${this.floor}</span></div>
+                <div class="stat-line"><span>Toplam Altın:</span> <span class="pixel-text gold-color">${this.player ? this.player.gold : 0}</span></div>
+                <div class="stat-line"><span>Yenilen Düşman:</span> <span class="pixel-text red-color">${this.killsCount}</span></div>
+            `;
+        }
+        document.getElementById('screen-victory').classList.add('active');
+        SoundEngine.stopMusic();
+        SoundEngine.playLevelUp();
+    },
+
+    closeVictory() {
+        this.state = 'start';
+        document.getElementById('screen-victory').classList.remove('active');
+    },
+
+    // ─── HİKAYE DİYALOĞU ───
+    showStoryDialog(floor) {
+        const stories = {
+            5: {
+                icon: '💀',
+                title: 'KARANLIĞIN KAPISI',
+                text: 'Adımların yankılanıyor... Duvarlar nefes alıyor gibi. Zindan\'ın beşinci katında Muhafız\'ın ruhu seni bekliyor. Her önceki savaşın bu an için bir hazırlıktı. Hazır mısın, kahraman?'
+            },
+            10: {
+                icon: '🌑',
+                title: 'SON YÜZLEŞME',
+                text: 'Sonunda... Zindanın en derin noktası. Kaos Lordu\'nun nefesi tavandan damlıyor. Tüm zindan bu anı bekledi. Ya bu karanlığı alt edeceksin, ya da sonsuza dek burada kalacaksın. Seçim senin...'
+            }
+        };
+        const s = stories[floor];
+        if (!s) return;
+
+        this.state = 'story';
+        document.getElementById('story-icon').textContent = s.icon;
+        document.getElementById('story-title').textContent = s.title;
+        document.getElementById('story-text').textContent = s.text;
+        document.getElementById('screen-story').classList.add('active');
+    },
+
+    closeStoryDialog() {
+        this.state = 'playing';
+        document.getElementById('screen-story').classList.remove('active');
+    },
+
+    // ─── UNVAN SİSTEMİ ───
+    _getPlayerTitle() {
+        if (this.floor >= 10) return 'Zindan Fatihi';
+        if (localStorage.getItem('pk_ach_dungeon_conqueror')) return 'Zindan Fatihi';
+        if (this.killsCount >= 100) return 'Efsanevi Katil';
+        if (this.floor >= 7)  return 'Zindan Avcısı';
+        if (this.floor >= 4)  return 'Cesur Kahraman';
+        return 'Çaylak Kaşif';
     },
 
     // Seviye Atlama (Geliştirme Popup Seçim Kartlarını Göster)
@@ -673,6 +770,18 @@ const GameEngine = {
 
         document.getElementById('level-val').innerText = this.player.level;
 
+        // 2c. Oyuncu unvanı
+        const titleEl = document.getElementById('player-title-display');
+        if (titleEl) {
+            const title = this._getPlayerTitle();
+            if (title !== 'Çaylak Kaşif') {
+                titleEl.textContent = title.toUpperCase();
+                titleEl.style.display = 'block';
+            } else {
+                titleEl.style.display = 'none';
+            }
+        }
+
         // 3. Karakter Nitelikleri Değerleri
         document.getElementById('stat-atk').innerText = this.player.getTotalAtk();
         document.getElementById('stat-def').innerText = this.player.getTotalDef();
@@ -896,8 +1005,8 @@ const GameEngine = {
                 }
 
                 // Eşya açıklaması hover tooltip (isInventory = true)
-                canvas.addEventListener('mouseenter', () => this.showTooltip(item, true));
-                canvas.addEventListener('mouseleave', () => this.hideTooltip());
+                canvas.addEventListener('mouseenter', () => { this._hoveredInvIndex = i; this.showTooltip(item, true); });
+                canvas.addEventListener('mouseleave', () => { this._hoveredInvIndex = -1; this.hideTooltip(); });
 
                 // Sol tık: kullan / kuşan
                 canvas.addEventListener('click', () => {
@@ -933,6 +1042,7 @@ const GameEngine = {
 
     // Hover Tooltip Bilgi Penceresi Gösterimi
     showTooltip(item, isInventory = false) {
+        if (this._tooltipHideTimeout) { clearTimeout(this._tooltipHideTimeout); this._tooltipHideTimeout = null; }
         const tooltip = document.getElementById('item-tooltip');
         const nameEl = document.getElementById('tooltip-name');
         const rarityEl = document.getElementById('tooltip-rarity');
@@ -986,14 +1096,26 @@ const GameEngine = {
         const rarityColors = { common: 'var(--rarity-common)', rare: 'var(--rarity-rare)', legendary: 'var(--rarity-legendary)' };
         nameEl.style.color = rarityColors[item.rarity];
 
-        // Envanter tooltip'i: satış fiyatı ve sağ tık ipucu
+        // Envanter tooltip'i: satış fiyatı, parçalama butonu ve sağ tık ipucu
+        const salvageBtn = document.getElementById('btn-tooltip-salvage');
         if (isInventory && item.type !== 'gold') {
             const price = this.getSellPrice(item);
             sellEl.innerHTML = `<i class="fa-solid fa-coins"></i> SAT: <span>${price} Altın</span>`;
             sellEl.style.display = 'flex';
+            // Parçalama butonu: sadece ekipman için (iksir değil)
+            if (salvageBtn) {
+                if (item.stats && !item.type.startsWith('potion')) {
+                    const salvageDesc = { common: '+1 Nitelik', rare: '+2 Nitelik', legendary: '+3 Nitelik' };
+                    salvageBtn.textContent = `⚡ PARÇALA (${salvageDesc[item.rarity] || '...'})`;
+                    salvageBtn.style.display = 'block';
+                } else {
+                    salvageBtn.style.display = 'none';
+                }
+            }
             hintEl.innerHTML = 'Sol tık: Kuşan/Kullan &nbsp;|&nbsp; <span style="color:var(--neon-red)">Sağ tık: Sat</span>';
         } else {
             sellEl.style.display = 'none';
+            if (salvageBtn) salvageBtn.style.display = 'none';
             hintEl.textContent = 'Kuşanmak veya kullanmak için tıkla';
         }
 
@@ -1001,8 +1123,12 @@ const GameEngine = {
     },
 
     hideTooltip() {
-        const tooltip = document.getElementById('item-tooltip');
-        if (tooltip) tooltip.style.display = 'none';
+        // Kısa gecikme: salvage butonuna geçerken tooltip kaybolmasın
+        if (this._tooltipHideTimeout) clearTimeout(this._tooltipHideTimeout);
+        this._tooltipHideTimeout = setTimeout(() => {
+            const tooltip = document.getElementById('item-tooltip');
+            if (tooltip) tooltip.style.display = 'none';
+        }, 120);
     },
 
     // Eşya satış fiyatını döndür (Pazarlıkçı: +%20)
@@ -1011,6 +1137,33 @@ const GameEngine = {
         const prices = { common: 8, rare: 22, legendary: 65 };
         const base = prices[item.rarity] || 5;
         return this.player && this.player.hasBarter ? Math.floor(base * 1.2) : base;
+    },
+
+    // Eşya Parçalama — Kalıcı küçük nitelik bonusu verir
+    salvageItem(index) {
+        const item = this.player.inventory[index];
+        if (!item || !item.stats || item.type === 'gold' || item.type.startsWith('potion')) return;
+
+        this.player.inventory.splice(index, 1);
+
+        const pools = {
+            common:    [{ stat: 'atk', val: 1 }, { stat: 'def', val: 1 }],
+            rare:      [{ stat: 'atk', val: 2 }, { stat: 'def', val: 2 }, { stat: 'hp', val: 6 }],
+            legendary: [{ stat: 'atk', val: 3 }, { stat: 'def', val: 3 }, { stat: 'hp', val: 12 }, { stat: 'crit', val: 2 }]
+        };
+        const pool = pools[item.rarity] || pools.common;
+        const bonus = pool[Math.floor(Math.random() * pool.length)];
+        this.player.stats[bonus.stat] = (this.player.stats[bonus.stat] || 0) + bonus.val;
+
+        const statNames = { atk: 'SALDIRI', def: 'DEFANS', hp: 'MAKS CAN', crit: 'KRİTİK' };
+        SoundEngine.playLevelUp();
+        this.addLog(`⚡ [${item.name}] parçalandı → Kalıcı +${bonus.val} ${statNames[bonus.stat]}!`, "loot");
+        this.textParticles.push(new TextParticle(
+            this.player.x, this.player.y - 40,
+            `+${bonus.val} ${statNames[bonus.stat]}!`, 'var(--neon-purple)', '9px', true
+        ));
+        this.updateUI();
+        this.drawInventory();
     },
 
     // Envanterden eşya sat
@@ -1188,6 +1341,10 @@ const GameEngine = {
             if (this.boss.hp <= 0) {
                 this.boss = null;
                 document.getElementById('boss-hud').classList.remove('active');
+                // Kat 10 boss'u yenildi → zafer!
+                if (this.floor === 10) {
+                    setTimeout(() => this.showVictory(), 1200);
+                }
             }
         }
 

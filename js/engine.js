@@ -36,6 +36,18 @@ const InputManager = {
                 }
             }
 
+            // Enter / Escape tuşu: hikaye diyaloğunu kapat
+            if (key === 'enter' || key === 'escape') {
+                if (window.GameEngine) {
+                    if (window.GameEngine.state === 'story') {
+                        window.GameEngine.closeStoryDialog();
+                    } else if (window.GameEngine.state === 'victory') {
+                        window.GameEngine.closeVictory();
+                        window.GameEngine.startNewGame();
+                    }
+                }
+            }
+
             // 'Q' tuşuna tek basış (Hızlı Hücum Yeteneği)
             if (key === 'q') {
                 if (window.GameEngine && window.GameEngine.state === 'playing' && window.GameEngine.player) {
