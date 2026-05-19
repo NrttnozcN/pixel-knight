@@ -1,0 +1,40 @@
+{
+  "name": "pixel-knight",
+  "version": "1.0.0",
+  "description": "Pixel Knight - Retro 2D Dungeon Crawler",
+  "main": "electron-main.js",
+  "author": "Nurettin",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win --x64",
+    "android:sync": "xcopy /E /Y index.html www\\ & xcopy /E /Y style.css www\\ & xcopy /E /Y /I js www\\js\\ & npx cap sync android",
+    "android:open": "npx cap open android"
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.nurettin.pixelknight",
+    "productName": "Pixel Knight",
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "deleteAppDataOnUninstall": true
+    },
+    "files": [
+      "index.html",
+      "style.css",
+      "js/**/*",
+      "electron-main.js"
+    ]
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.3.4",
+    "@capacitor/cli": "^8.3.4",
+    "@capacitor/core": "^8.3.4"
+  }
+}
