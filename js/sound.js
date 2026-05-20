@@ -72,8 +72,11 @@ const SoundEngine = {
                 btn.style.borderColor = 'var(--neon-green)';
                 btn.style.boxShadow = '0 0 10px rgba(57, 255, 20, 0.3)';
                 
-                const startScreen = document.getElementById('screen-start');
-                if (startScreen && startScreen.classList.contains('active')) {
+                const startScreen  = document.getElementById('screen-start');
+                const splashScreen = document.getElementById('screen-splash');
+                const onMenu = (startScreen  && startScreen.classList.contains('active')) ||
+                               (splashScreen && splashScreen.style.display !== 'none' && splashScreen.classList.contains('active'));
+                if (onMenu) {
                     this.playMenuMusic();
                 } else {
                     this.playMusic();

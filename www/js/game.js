@@ -181,13 +181,15 @@ const GameEngine = {
             }
         });
 
-        // Erevorn menü jenerik müzik başlatma dinleyicisi (Autoplay engeline takılmamak için ilk tıklamada çalar)
-        document.addEventListener('click', () => {
-            const startScreen = document.getElementById('screen-start');
-            if (startScreen && startScreen.classList.contains('active') && !SoundEngine.isMuted) {
+        // İlk kullanıcı etkileşiminde (tık, tuş, dokunuş) menü müziğini başlat
+        const _startMenuMusic = () => {
+            if (!SoundEngine.isMuted && !SoundEngine.menuMusicPlaying && this.state !== 'playing') {
                 SoundEngine.playMenuMusic();
             }
-        });
+        };
+        document.addEventListener('click',      _startMenuMusic, { once: true });
+        document.addEventListener('keydown',    _startMenuMusic, { once: true });
+        document.addEventListener('touchstart', _startMenuMusic, { once: true });
     },
 
     // Yeni Bir Oyuna Sıfırdan Başla

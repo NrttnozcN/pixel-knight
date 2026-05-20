@@ -85,7 +85,7 @@
                             <div class="splash-loader-container" style="width: 200px; height: 10px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 4px; padding: 2px; margin-top: 15px; overflow: hidden; box-shadow: inset 0 2px 5px rgba(0,0,0,0.5);">
                                 <div id="splash-loader-fill" style="width: 0%; height: 100%; background: linear-gradient(to right, var(--neon-cyan), var(--neon-purple)); border-radius: 2px; box-shadow: 0 0 8px var(--neon-cyan); transition: width 0.1s linear;"></div>
                             </div>
-                            <p id="splash-tap-hint" class="pixel-text" style="font-size: 7px; color: var(--neon-cyan); letter-spacing: 3px; margin-top: 18px; opacity: 0; animation: splashSubTextFade 1.2s ease-in-out 0.8s forwards;">DOKUNUN</p>
+                            <p id="splash-tap-hint" class="pixel-text" style="font-size: 7px; color: var(--neon-cyan); letter-spacing: 3px; margin-top: 18px; opacity: 0; animation: splashSubTextFade 1.2s ease-in-out 0.8s forwards;">HERHANGİ BİR TUŞA BAS</p>
                         </div>
                     </div>
 
@@ -98,15 +98,6 @@
                         var duration   = 2200;
                         var intervalTime = 30;
                         var step = (intervalTime / duration) * 100;
-
-                        // İlk etkileşimde (tık veya dokunuş) menü müziğini başlat
-                        function _tryStartMusic() {
-                            if (window.SoundEngine && !SoundEngine.isMuted) {
-                                SoundEngine.playMenuMusic();
-                            }
-                        }
-                        document.addEventListener('click',      _tryStartMusic, { once: true });
-                        document.addEventListener('touchstart', _tryStartMusic, { once: true });
 
                         var timer = setInterval(function(){
                             progress += step;
