@@ -29,7 +29,9 @@
       "index.html",
       "style.css",
       "js/**/*",
-      "electron-main.js"
+      "electron-main.js",
+      "iron_belltomb.mp3",
+      "splash.jpg"
     ]
   },
   "dependencies": {

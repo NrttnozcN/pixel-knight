@@ -664,6 +664,7 @@ const GameEngine = {
         document.getElementById('screen-gameover').classList.add('active');
 
         SoundEngine.stopMusic();
+        if (!SoundEngine.isMuted) setTimeout(() => SoundEngine.playMenuMusic(), 1200);
     },
 
     // ─── ZAFER EKRANI ───
