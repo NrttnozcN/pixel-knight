@@ -58,6 +58,13 @@ const GameEngine = {
         // Anti-aliasing'i kapat (Piksel keskinliği için)
         this.ctx.imageSmoothingEnabled = false;
 
+        // DOM elementlerini bir kez cache'le (per-frame getElementById önlenir)
+        this._elBossBar  = document.getElementById('boss-hp-bar');
+        this._elBossName = document.getElementById('boss-name');
+        this._lastBossHpPct  = -1;
+        this._lastBossPhase  = -1;
+        this._hpAlertTimer   = 0; // critical_hp / low_hp diyalog throttle
+
         // 2. Kontrol Sistemini Başlat
         InputManager.init(this.canvas);
         
@@ -1652,38 +1659,41 @@ const GameEngine = {
         // Satıcıyı Güncelle
         if (this.merchant) this.merchant.update(this.player, this);
 
-        // Diyalog: düşük can eventleri
+        // Diyalog: düşük can eventleri — 5 saniyede bir kontrol (throttle)
         if (window.DialogSystem && this.player) {
-            const hpRatio = this.player.hp / this.player.getMaxHp();
-            if (hpRatio <= 0.12) DialogSystem.triggerEvent('critical_hp');
-            else if (hpRatio <= 0.30) DialogSystem.triggerEvent('low_hp');
+            this._hpAlertTimer = (this._hpAlertTimer || 0) - 1;
+            if (this._hpAlertTimer <= 0) {
+                const hpRatio = this.player.hp / this.player.getMaxHp();
+                if (hpRatio <= 0.12) { DialogSystem.triggerEvent('critical_hp'); this._hpAlertTimer = 300; }
+                else if (hpRatio <= 0.30) { DialogSystem.triggerEvent('low_hp'); this._hpAlertTimer = 300; }
+            }
         }
 
         // Başarım bildirimi sayacı
         if (this.achievementNotif && this.achievementNotif.timer > 0) this.achievementNotif.timer--;
         else if (this.achievementNotif && this.achievementNotif.timer === 0) this.achievementNotif = null;
 
-        // Gold achievement kontrolü (her frame değil, sadece gold değişince)
-        if (this.player && this.player.gold >= 500) this._checkAchievements();
-
-        // Boss Can Barı HUD güncellemesi
+        // Boss Can Barı HUD güncellemesi — sadece değer değişince yaz (DOM thrash önlenir)
         if (this.boss) {
-            const hpPercent = Math.max(0, (this.boss.hp / this.boss.maxHp) * 100);
-            const barEl = document.getElementById('boss-hp-bar');
-            barEl.style.width = `${hpPercent}%`;
-
-            // Faz rengi: 1=kırmızı, 2=turuncu, 3=mor, 4=pembe alev
-            const phaseColors = ['#ff3b30', '#ff8c00', '#b026ff', '#ff2d78'];
-            barEl.style.background = phaseColors[(this.boss.phase || 1) - 1];
-
-            // Boss adı faz göstergesiyle güncelle
-            const nameEl = document.getElementById('boss-name');
-            if (nameEl) {
-                const phaseStr = this.boss.phase > 1 ? ` — FAZ ${this.boss.phase}` : '';
-                nameEl.textContent = `${this.boss.name}${phaseStr}`;
+            const hpPercent = Math.round(Math.max(0, (this.boss.hp / this.boss.maxHp) * 100));
+            const phase = this.boss.phase || 1;
+            if (hpPercent !== this._lastBossHpPct) {
+                this._lastBossHpPct = hpPercent;
+                if (this._elBossBar) this._elBossBar.style.width = `${hpPercent}%`;
+            }
+            if (phase !== this._lastBossPhase) {
+                this._lastBossPhase = phase;
+                const phaseColors = ['#ff3b30', '#ff8c00', '#b026ff', '#ff2d78'];
+                if (this._elBossBar) this._elBossBar.style.background = phaseColors[phase - 1];
+                if (this._elBossName) {
+                    const phaseStr = phase > 1 ? ` — FAZ ${phase}` : '';
+                    this._elBossName.textContent = `${this.boss.name}${phaseStr}`;
+                }
             }
 
             if (this.boss.hp <= 0) {
+                this._lastBossHpPct = -1;
+                this._lastBossPhase = -1;
                 const bossZone = Math.ceil(this.floor / 10);
                 this.boss = null;
                 document.getElementById('boss-hud').classList.remove('active');

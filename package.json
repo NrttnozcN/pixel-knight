@@ -18,7 +18,8 @@
     "appId": "com.nurettin.pixelknight",
     "productName": "EREVORN",
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "gorseller/erevorn_mobile_icon.png"
     },
     "nsis": {
       "oneClick": true,
@@ -31,8 +32,11 @@
       "js/**/*",
       "electron-main.js",
       "iron_belltomb.mp3",
-      "splash.jpg",
-      "sesler/**/*"
+      "sesler/**/*",
+      "gorseller/**/*",
+      "erevorn_favicon.png",
+      "erevorn_main_logo.png",
+      "giris_animasyonu.mp4"
     ]
   },
   "dependencies": {

@@ -150,8 +150,8 @@ const GameLoop = {
     loop(timestamp) {
         if (!this.isRunning) return;
 
-        // Geçen süreyi hesapla (Delta Time - Farklı hızlardaki ekranlar için kararlılık)
-        const dt = timestamp - this.lastTime;
+        // Geçen süreyi hesapla; 50ms'e sabitle (sekme gizlenince devasa dt'yi önler)
+        const dt = Math.min(timestamp - this.lastTime, 50);
         this.lastTime = timestamp;
 
         // 1. Güncellemeleri yap (Fizik, Yapay Zeka vb.)
