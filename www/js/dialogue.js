@@ -1,6 +1,6 @@
 'use strict';
 /**
- * PIXEL KNIGHT — Dialogue System
+ * EREVORN — Dialogue System
  * Canvas-drawn speech bubbles with typewriter effect.
  * Speakers: Sera (guide), Kârun (villain), rescued NPCs, bosses, narrator.
  */

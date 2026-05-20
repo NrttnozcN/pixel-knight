@@ -1,6 +1,6 @@
 /**
  * ==========================================================================
- * PIXEL KNIGHT - WEB AUDIO RETRO SYNTHESIZER ENGINE
+ * EREVORN - WEB AUDIO RETRO SYNTHESIZER ENGINE
  * ==========================================================================
  * Bu dosya, harici hiçbir .mp3/.wav dosyasına ihtiyaç duymadan,
  * tarayıcının Web Audio API'sini kullanarak gerçek zamanlı 8-bit ses üretir.
@@ -14,6 +14,9 @@ const SoundEngine = {
     _combatMode: false,
     isMuted: true, // Varsayılan olarak tarayıcı politikaları nedeniyle sessiz başlar
     musicPlaying: false,
+    menuAudio: null,
+    menuMusicPlaying: false,
+    menuSourceNode: null,
 
     // Ritim ve nota dizilimleri (Cozy Retro RPG melodisi: Am - F - C - G)
     notes: {
@@ -62,12 +65,19 @@ const SoundEngine = {
                 btn.style.borderColor = 'rgba(255,255,255,0.08)';
                 btn.style.boxShadow = 'none';
                 this.stopMusic();
+                this.stopMenuMusic();
             } else {
                 btn.innerHTML = '<i class="fa-solid fa-volume-high"></i>';
                 btn.style.color = 'var(--neon-green)';
                 btn.style.borderColor = 'var(--neon-green)';
                 btn.style.boxShadow = '0 0 10px rgba(57, 255, 20, 0.3)';
-                this.playMusic();
+                
+                const startScreen = document.getElementById('screen-start');
+                if (startScreen && startScreen.classList.contains('active')) {
+                    this.playMenuMusic();
+                } else {
+                    this.playMusic();
+                }
             }
         }
     },
@@ -542,6 +552,46 @@ const SoundEngine = {
         }
         this.musicPlaying = false;
         this._combatMode = false;
+    },
+
+    playMenuMusic() {
+        if (this.isMuted) return;
+        if (this.menuMusicPlaying) return;
+
+        this.init();
+
+        if (!this.menuAudio) {
+            this.menuAudio = new Audio('iron_belltomb.mp3');
+            this.menuAudio.loop = true;
+        }
+
+        // Connect to Web Audio masterGain if context exists and not connected yet
+        if (this.ctx && this.masterGain && !this.menuSourceNode) {
+            try {
+                this.menuSourceNode = this.ctx.createMediaElementSource(this.menuAudio);
+                this.menuSourceNode.connect(this.masterGain);
+            } catch (e) {
+                console.warn("[Sound Engine] Media element source connection failed:", e);
+            }
+        }
+
+        // Set volume to 1.0 because the masterGain already handles the actual volume level
+        this.menuAudio.volume = 1.0;
+
+        this.menuAudio.play().then(() => {
+            this.menuMusicPlaying = true;
+            console.log("[Sound Engine] Menu music started playing.");
+        }).catch(err => {
+            console.warn("[Sound Engine] Menu music play failed (autoplay restriction):", err);
+        });
+    },
+
+    stopMenuMusic() {
+        if (this.menuAudio) {
+            this.menuAudio.pause();
+            this.menuAudio.currentTime = 0;
+        }
+        this.menuMusicPlaying = false;
     },
 
     // Dinamik müzik: savaş modunda hi-hat perküsyon katmanı ekler

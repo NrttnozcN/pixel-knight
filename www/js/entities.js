@@ -1,6 +1,6 @@
 /**
  * ==========================================================================
- * PIXEL KNIGHT - ENTITIES & RPG OBJECT MODELS
+ * EREVORN - ENTITIES & RPG OBJECT MODELS
  * ==========================================================================
  * Bu dosya; Oyuncu, Düşmanlar, Eşyalar, Hazine Sandıkları, Partiküller ve 
  * Havada Uçan Hasar Sayılarını (Text Particles) tanımlayan sınıfları içerir.

@@ -1,6 +1,6 @@
 /**
  * ==========================================================================
- * PIXEL KNIGHT - PROCEDURAL SPRITE GENERATOR & CACHE SYSTEM
+ * EREVORN - PROCEDURAL SPRITE GENERATOR & CACHE SYSTEM
  * ==========================================================================
  * Bu dosya, harici görsellere ihtiyaç duymadan, piksel matrislerini tarayıcı
  * belleğinde Canvas nesnelerine dönüştürerek oyunun tüm grafiklerini oluşturur.

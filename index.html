@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Pixel Knight - Retro 2D Dungeon Crawler</title>
+    <title>EREVORN - Retro 2D Dungeon Crawler</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
@@ -11,6 +11,13 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <!-- Portrait Orientation Warning (Media Query Control) -->
+    <div class="orientation-warning">
+        <div class="pixel-text" style="font-size: 24px; margin-bottom: 20px; color: var(--neon-gold); text-shadow: 0 0 10px rgba(255, 215, 0, 0.4);">🔄</div>
+        <h2 class="pixel-text" style="font-size: 14px; margin-bottom: 10px; line-height: 1.6; color: var(--text-primary);">EKRANI YATAY ÇEVİRİN</h2>
+        <p style="font-size: 11px; color: var(--text-secondary); max-width: 250px; line-height: 1.6; font-family: var(--font-modern);">Bu oyun en iyi deneyim için sadece yatay ekran modunda oynanabilir.</p>
+    </div>
+
     <canvas id="bg-particles" class="bg-canvas"></canvas>
 
     <div class="dashboard-wrapper">
@@ -18,7 +25,7 @@
         <header class="game-header">
             <div class="header-logo">
                 <i class="fa-solid fa-shield-halved neon-pulse-icon"></i>
-                <h1 class="pixel-text text-glow">PIXEL KNIGHT</h1>
+                <h1 class="pixel-text text-glow">EREVORN</h1>
             </div>
             <div class="header-status">
                 <span class="floor-badge">
@@ -65,41 +72,166 @@
                         </div>
                     </div>
 
+                    <!-- Katman 0: Açılış/Splash Animasyonu -->
+                    <div id="screen-splash" class="overlay-screen active" style="z-index: 999; background: #07070a; display: flex; flex-direction: column; justify-content: center; align-items: center; opacity: 1; transition: opacity 0.8s ease-in-out;">
+                        <div class="splash-content" style="text-align: center; display: flex; flex-direction: column; align-items: center; gap: 15px; animation: splashFadeIn 1s ease-out;">
+                            <div class="splash-logo-glow" style="position: relative; width: 140px; height: 140px; display: flex; justify-content: center; align-items: center; margin-bottom: 5px;">
+                                <img src="splash.jpg" alt="Ülgen Soft" style="width: 120px; height: 120px; object-fit: contain; image-rendering: pixelated; border-radius: 12px; border: 2px solid var(--neon-cyan); box-shadow: 0 0 20px rgba(0, 240, 255, 0.4); animation: splashShieldPulse 2s infinite ease-in-out;">
+                            </div>
+                            <h1 class="pixel-text" style="font-size: 20px; letter-spacing: 2px; margin: 0; background: linear-gradient(135deg, var(--neon-cyan), var(--neon-purple)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0 2px 10px rgba(0, 240, 255, 0.4)); animation: splashTextGlow 3s infinite alternate;">ÜLGEN SOFT</h1>
+                            <p class="pixel-text" style="font-size: 8px; color: var(--text-secondary); letter-spacing: 4px; margin-top: 5px; opacity: 0.8; animation: splashSubTextFade 2.5s infinite ease-in-out;">SUNAR</p>
+                            
+                            <!-- Pixel Loader Bar -->
+                            <div class="splash-loader-container" style="width: 200px; height: 10px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 4px; padding: 2px; margin-top: 15px; overflow: hidden; box-shadow: inset 0 2px 5px rgba(0,0,0,0.5);">
+                                <div id="splash-loader-fill" style="width: 0%; height: 100%; background: linear-gradient(to right, var(--neon-cyan), var(--neon-purple)); border-radius: 2px; box-shadow: 0 0 8px var(--neon-cyan); transition: width 0.1s linear;"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <script>
+                    (function(){
+                        var loaderFill = document.getElementById('splash-loader-fill');
+                        var splash = document.getElementById('screen-splash');
+                        var start = document.getElementById('screen-start');
+                        var progress = 0;
+                        var duration = 2200; // 2.2 seconds loading bar
+                        var intervalTime = 30;
+                        var step = (intervalTime / duration) * 100;
+                        
+                        var timer = setInterval(function(){
+                            progress += step;
+                            if (progress >= 100) {
+                                progress = 100;
+                                clearInterval(timer);
+                                
+                                if (splash && start) {
+                                    splash.style.opacity = '0';
+                                    setTimeout(function(){
+                                        splash.style.display = 'none';
+                                        splash.classList.remove('active');
+                                        start.classList.add('active');
+                                        start.style.opacity = '0';
+                                        setTimeout(function(){
+                                            start.style.transition = 'opacity 0.8s ease-in-out';
+                                            start.style.opacity = '1';
+                                        }, 50);
+                                    }, 800);
+                                }
+                            }
+                            if (loaderFill) {
+                                loaderFill.style.width = progress + '%';
+                            }
+                        }, intervalTime);
+                    })();
+                    </script>
+
                     <!-- Katman 1: Başlangıç Ekranı -->
-                    <div id="screen-start" class="overlay-screen active">
-                        <div class="screen-content">
-                            <h2 class="pixel-text text-glow large-text">KARANLIK BAŞLIYOR</h2>
-                            <p class="description">Zindanların derinliklerindeki portalı bul, yaratıklarla savaş ve efsanevi ganimetleri topla!</p>
-                            <div class="wasd-instructions">
-                                <div class="key-guide"><span class="key-cap">W</span><span class="key-cap">A</span><span class="key-cap">S</span><span class="key-cap">D</span> <span>Hareket</span></div>
-                                <div class="key-guide"><span class="key-cap"><i class="fa-solid fa-mouse-pointer"></i> Sol Tık</span> <span>Saldırı</span></div>
-                                <div class="key-guide"><span class="key-cap">E</span> <span>Etkileşim (Sandık / Portal / Satıcı)</span></div>
-                                <div class="key-guide"><span class="key-cap">Q</span> <span>Hızlı Hücum</span></div>
-                                <div class="key-guide"><span class="key-cap">R</span> <span>Silah Yağmuru</span></div>
-                            </div>
-                            <div style="margin-bottom:4px;font-size:10px;color:#888;font-family:'Outfit',sans-serif">Sınıfını seç:</div>
-                            <div id="class-selection-row" style="display:flex;gap:10px;justify-content:center;margin-bottom:16px">
+                    <div id="screen-start" class="overlay-screen">
+                        <!-- Sol Panel: Sınıf Seçimi -->
+                        <div class="menu-left-panel">
+                            <h2 class="pixel-text panel-title">SINIFINI SEÇ</h2>
+                            
+                            <div class="class-selection-list">
                                 <div class="class-card selected" data-class="warrior">
-                                    <div style="font-size:22px;margin-bottom:4px">⚔️</div>
-                                    <div class="pixel-text" style="font-size:8px;color:var(--neon-cyan)">SAVAŞÇI</div>
-                                    <div style="font-size:8px;color:#aaa;margin-top:5px;line-height:1.6">+5 Savunma<br>Güçlü Vuruş</div>
+                                    <div class="class-card-header">
+                                        <div class="class-portrait warrior-portrait">🛡️</div>
+                                        <div class="class-info">
+                                            <div class="pixel-text class-name-warrior">SAVAŞÇI</div>
+                                            <div class="class-desc">Dayanıklı yakın dövüş ustası</div>
+                                        </div>
+                                    </div>
+                                    <div class="class-stats">
+                                        <div class="stat-row">
+                                            <span class="stat-label">GÜÇ</span>
+                                            <div class="stat-bar-container"><div class="stat-bar-fill warrior-color" style="width: 80%"></div></div>
+                                        </div>
+                                        <div class="stat-row">
+                                            <span class="stat-label">DAYANIKLILIK</span>
+                                            <div class="stat-bar-container"><div class="stat-bar-fill warrior-color" style="width: 100%"></div></div>
+                                        </div>
+                                        <div class="stat-row">
+                                            <span class="stat-label">CAN</span>
+                                            <div class="stat-bar-container"><div class="stat-bar-fill warrior-color" style="width: 80%"></div></div>
+                                        </div>
+                                    </div>
                                 </div>
+
                                 <div class="class-card" data-class="ranger">
-                                    <div style="font-size:22px;margin-bottom:4px">🏹</div>
-                                    <div class="pixel-text" style="font-size:8px;color:var(--neon-green)">NİŞANCI</div>
-                                    <div style="font-size:8px;color:#aaa;margin-top:5px;line-height:1.6">+5% Kritik<br>+0.3 Hız</div>
+                                    <div class="class-card-header">
+                                        <div class="class-portrait ranger-portrait">🏹</div>
+                                        <div class="class-info">
+                                            <div class="pixel-text class-name-ranger">OKÇU</div>
+                                            <div class="class-desc">Çevik ve hızlı menzilli savaşçı</div>
+                                        </div>
+                                    </div>
+                                    <div class="class-stats">
+                                        <div class="stat-row">
+                                            <span class="stat-label">ÇEVİKLİK</span>
+                                            <div class="stat-bar-container"><div class="stat-bar-fill ranger-color" style="width: 100%"></div></div>
+                                        </div>
+                                        <div class="stat-row">
+                                            <span class="stat-label">KRİTİK</span>
+                                            <div class="stat-bar-container"><div class="stat-bar-fill ranger-color" style="width: 80%"></div></div>
+                                        </div>
+                                        <div class="stat-row">
+                                            <span class="stat-label">UZAKLIK</span>
+                                            <div class="stat-bar-container"><div class="stat-bar-fill ranger-color" style="width: 80%"></div></div>
+                                        </div>
+                                    </div>
                                 </div>
+
                                 <div class="class-card" data-class="mage">
-                                    <div style="font-size:22px;margin-bottom:4px">🔮</div>
-                                    <div class="pixel-text" style="font-size:8px;color:var(--neon-purple)">BÜYÜCÜ</div>
-                                    <div style="font-size:8px;color:#aaa;margin-top:5px;line-height:1.6">%25 Kısa<br>Bekleme</div>
+                                    <div class="class-card-header">
+                                        <div class="class-portrait mage-portrait">🔮</div>
+                                        <div class="class-info">
+                                            <div class="pixel-text class-name-mage">BÜYÜCÜ</div>
+                                            <div class="class-desc">Gizemli büyülerin hakimi</div>
+                                        </div>
+                                    </div>
+                                    <div class="class-stats">
+                                        <div class="stat-row">
+                                            <span class="stat-label">ZEKÂ</span>
+                                            <div class="stat-bar-container"><div class="stat-bar-fill mage-color" style="width: 100%"></div></div>
+                                        </div>
+                                        <div class="stat-row">
+                                            <span class="stat-label">BÜYÜ GÜCÜ</span>
+                                            <div class="stat-bar-container"><div class="stat-bar-fill mage-color" style="width: 100%"></div></div>
+                                        </div>
+                                        <div class="stat-row">
+                                            <span class="stat-label">MANA</span>
+                                            <div class="stat-bar-container"><div class="stat-bar-fill mage-color" style="width: 100%"></div></div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                            <div style="display:flex;gap:8px;justify-content:center;align-items:center;margin-top:4px">
-                                <button id="btn-start" class="action-btn pixel-text">MACERAYA BAŞLA</button>
-                                <button id="btn-meta" class="action-btn pixel-text" style="background:rgba(130,0,255,0.2);border-color:var(--neon-purple);font-size:9px;padding:12px 16px" title="Ruh Taşları - Kalıcı Yükseltmeler">
-                                    💎 RUH TAŞLARI
-                                </button>
+                            
+                            <div class="menu-left-footer font-modern">
+                                v0.1.0 | Ülgen Soft
+                            </div>
+                        </div>
+
+                        <!-- Orta Kısım: Boş Alan (Arka planın görünmesi için) -->
+                        <div class="menu-center-space"></div>
+
+                        <!-- Sağ Panel: Hikaye ve Butonlar -->
+                        <div class="menu-right-panel">
+                            <div class="story-container">
+                                <h3 class="pixel-text story-title">- EREVORN -</h3>
+                                <p class="story-text">Beş krallık, bir büyücü ve açılan zindan kapıları... Kārun karanlığı çağırdı. Şimdi kaderi değiştirecek tek kişi sensin.</p>
+                                <div id="btn-start" class="start-action-link pixel-text">İnişe başla.</div>
+                            </div>
+                            
+                            <div class="menu-buttons-group">
+                                <button class="menu-btn pixel-text" onclick="document.getElementById('btn-start').click()">DEVAM ET</button>
+                                <button id="btn-meta" class="menu-btn pixel-text">RUH TAŞLARI</button>
+                                <button class="menu-btn pixel-text" onclick="alert('Seçenekler oyun içi duraklatma menüsünden yönetilebilir.')">AYARLAR</button>
+                                <button class="menu-btn pixel-text" onclick="if(window.electron) { window.close(); } else { alert('Tarayıcıdan çıkış yapılamaz. Sekmeyi kapatabilirsiniz.'); }">ÇIKIŞ</button>
+                            </div>
+                            
+                            <div class="menu-social-icons">
+                                <a href="https://discord.gg" target="_blank" class="social-icon"><i class="fa-brands fa-discord"></i></a>
+                                <a href="https://x.com" target="_blank" class="social-icon"><i class="fa-brands fa-x-twitter"></i></a>
+                                <a href="https://youtube.com" target="_blank" class="social-icon"><i class="fa-brands fa-youtube"></i></a>
                             </div>
                         </div>
                     </div>

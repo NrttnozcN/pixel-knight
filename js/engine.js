@@ -1,6 +1,6 @@
 /**
  * ==========================================================================
- * PIXEL KNIGHT - INPUT SYSTEM, SCREEN SHAKE & GAME LOOP ENGINE
+ * EREVORN - INPUT SYSTEM, SCREEN SHAKE & GAME LOOP ENGINE
  * ==========================================================================
  * Bu dosya; klavye/fare dinleyicilerini, ekran sarsma (Screen Shake) sistemini
  * ve saniyede 60 kare çalışan kararlı Game Loop motorunu yönetir.

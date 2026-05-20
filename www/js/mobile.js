@@ -1,6 +1,6 @@
 /**
  * ==========================================================================
- * PIXEL KNIGHT - MOBİL KONTROLLER (Dokunmatik Joystick + Butonlar)
+ * EREVORN - MOBİL KONTROLLER (Dokunmatik Joystick + Butonlar)
  * ==========================================================================
  * Dokunmatik cihazları tespit eder, virtual joystick ve butonlarla
  * mevcut Keyboard/Mouse nesnelerine hareket ve saldırı iletir.

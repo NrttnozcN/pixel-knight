@@ -1,6 +1,6 @@
 /**
  * ==========================================================================
- * PIXEL KNIGHT - ORCHESTRATOR & STATE MANAGER
+ * EREVORN - ORCHESTRATOR & STATE MANAGER
  * ==========================================================================
  * Bu dosya; oyunun durumlarını (Giriş, Oyun İçi, Seviye Atlama Seçimleri, 
  * Ölüm), UI panellerini, envanteri, savaşı ve kat geçişlerini koordine eder.
@@ -180,6 +180,14 @@ const GameEngine = {
                 tooltip.style.top  = top  + 'px';
             }
         });
+
+        // Erevorn menü jenerik müzik başlatma dinleyicisi (Autoplay engeline takılmamak için ilk tıklamada çalar)
+        document.addEventListener('click', () => {
+            const startScreen = document.getElementById('screen-start');
+            if (startScreen && startScreen.classList.contains('active') && !SoundEngine.isMuted) {
+                SoundEngine.playMenuMusic();
+            }
+        });
     },
 
     // Yeni Bir Oyuna Sıfırdan Başla
@@ -265,6 +273,10 @@ const GameEngine = {
 
         // 4. Durumu Güncelle ve Müzik Başlat
         this.state = 'playing';
+        
+        if (SoundEngine) {
+            SoundEngine.stopMenuMusic();
+        }
         
         // Mute butonuna göre müziği oynat
         if (SoundEngine && !SoundEngine.isMuted) {

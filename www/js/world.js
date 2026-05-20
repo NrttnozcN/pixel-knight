@@ -1,6 +1,6 @@
 /**
  * ==========================================================================
- * PIXEL KNIGHT - PROCEDURAL DUNGEON GENERATOR & WORLD SYSTEM
+ * EREVORN - PROCEDURAL DUNGEON GENERATOR & WORLD SYSTEM
  * ==========================================================================
  * Bu dosya, rastgele zindan odaları ve koridorları üreten algoritmayı,
  * karo çarpışma testlerini, kamera sistemini ve dinamik meşale aydınlatmasını yönetir.

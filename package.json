@@ -1,13 +1,13 @@
 {
   "name": "pixel-knight",
   "version": "1.0.0",
-  "description": "Pixel Knight - Retro 2D Dungeon Crawler",
+  "description": "EREVORN - Retro 2D Dungeon Crawler",
   "main": "electron-main.js",
   "author": "Nurettin",
   "scripts": {
     "start": "electron .",
     "build": "electron-builder --win --x64",
-    "android:sync": "xcopy /E /Y index.html www\\ & xcopy /E /Y style.css www\\ & xcopy /E /Y /I js www\\js\\ & npx cap sync android",
+    "android:sync": "node sync.js",
     "android:open": "npx cap open android"
   },
   "devDependencies": {
@@ -16,7 +16,7 @@
   },
   "build": {
     "appId": "com.nurettin.pixelknight",
-    "productName": "Pixel Knight",
+    "productName": "EREVORN",
     "win": {
       "target": "nsis"
     },

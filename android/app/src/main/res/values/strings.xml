@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">Pixel Knight</string>
-    <string name="title_activity_main">Pixel Knight</string>
+    <string name="app_name">EREVORN</string>
+    <string name="title_activity_main">EREVORN</string>
     <string name="package_name">com.nurettin.pixelknight</string>
     <string name="custom_url_scheme">com.nurettin.pixelknight</string>
 </resources>
