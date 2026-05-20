@@ -455,6 +455,7 @@ const GameEngine = {
             // Can barını baştan doldur
             document.getElementById('boss-hp-bar').style.width = '100%';
             SoundEngine.playBossRoar();
+            SoundEngine.startBossFight();
             // Boss pre-diyalogu tetikle
             if (window.DialogSystem) {
                 const bossZone = Math.ceil(this.floor / 10);
@@ -871,6 +872,7 @@ const GameEngine = {
                     if (stones2 >= u.cost && cur2 < u.max) {
                         localStorage.setItem('pk_soul_stones', stones2 - u.cost);
                         localStorage.setItem(`pk_meta_${u.key}`, cur2 + 1);
+                        SoundEngine.playSoulstone();
                         this._drawMetaUpgrades();
                     }
                 });
@@ -1492,7 +1494,7 @@ const GameEngine = {
         this.player.stats[bonus.stat] = (this.player.stats[bonus.stat] || 0) + bonus.val;
 
         const statNames = { atk: 'SALDIRI', def: 'DEFANS', hp: 'MAKS CAN', crit: 'KRİTİK' };
-        SoundEngine.playLevelUp();
+        SoundEngine.playSalvage();
         this.addLog(`⚡ [${item.name}] parçalandı → Kalıcı +${bonus.val} ${statNames[bonus.stat]}!`, "loot");
         this.textParticles.push(new TextParticle(
             this.player.x, this.player.y - 40,
@@ -2087,7 +2089,7 @@ const GameEngine = {
         const newItem = new Item(this.player.x, this.player.y, cat + '_' + newRarity);
         this.player.inventory.push(newItem);
 
-        SoundEngine.playLevelUp();
+        SoundEngine.playForge();
         this.addLog(`⚒ [${a.name}] + [${b.name}] → [${newItem.name}]`, "loot");
         this.triggerScreenShake(3);
         this.drawForge();

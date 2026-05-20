@@ -1446,7 +1446,7 @@ class Player {
 
         if (isBow) {
             // MENZİLLİ SALDIRI (OK ATMA)
-            SoundEngine.playSwing(); // Chiptune ok fırlatma sesi
+            SoundEngine.playArcherAttack();
 
             const damage = Math.floor(this.getTotalAtk() * (this.rapidAttackActive ? 0.7 : 1));
             const rarity = this.equipment.weapon.rarity;
@@ -1461,13 +1461,13 @@ class Player {
             return;
         }
 
-        // YAKIN DÖVÜŞ (KILIÇ SAVURMA)
+        // YAKIN DÖVÜŞ (KILIÇ / ASA SAVURMA)
         this.isAttacking = true;
         this.attackTimer = 0;
         this.attackCooldownTimer = this.rapidAttackActive ? 12 : this.attackCooldown;
 
-        // Kılıç savurma retro sesi
-        SoundEngine.playSwing();
+        const isStaff = this.equipment.weapon && this.equipment.weapon.type.includes('staff');
+        if (isStaff) SoundEngine.playMageAttack(); else SoundEngine.playSwing();
 
         // Saldırı yayı ve canavar çarpışma kontrolü
         // Menzil: 55 piksel, Açı genişliği: ~90 derece (1.6 radyan)
@@ -1503,6 +1503,7 @@ class Player {
                         damage *= 2;
                         isCrit = true;
                         game.triggerScreenShake(8);
+                        SoundEngine.playCritical();
                     }
 
                     // Düşmana hasar ver (knockback çarpanı dahil)
@@ -1629,7 +1630,7 @@ class Player {
         // 1. ALTIN TOPLAMA
         if (item.type === 'gold') {
             this.gold += item.amount;
-            SoundEngine.playCoin();
+            SoundEngine.playGoldPick();
             game.textParticles.push(new TextParticle(
                 this.x, this.y - 12,
                 `+${item.amount} Altın`,
@@ -1647,7 +1648,7 @@ class Player {
                 const existing = this.inventory.find(i => i.type === item.type);
                 if (existing) {
                     existing.count = (existing.count || 1) + 1;
-                    SoundEngine.playCoin();
+                    SoundEngine.playItemPick();
                     game.textParticles.push(new TextParticle(
                         this.x, this.y - 15, item.name, 'var(--rarity-rare)', "8px"
                     ));
@@ -1680,8 +1681,7 @@ class Player {
                 count: 1
             });
 
-            // Altın sesi veya hafif çınlama sesi
-            SoundEngine.playCoin();
+            SoundEngine.playItemPick();
 
             // Uçan metin göster
             let rColor = 'var(--text-primary)';
@@ -1869,7 +1869,7 @@ class Player {
                     window.SpriteEngine.updatePlayerSprites(this.equipment);
                 }
 
-                SoundEngine.playChestOpen();
+                SoundEngine.playEquip(slot, item.type);
                 game.addLog(`[${item.name}] kuşandın! RPG niteliklerin güncellendi.`, "loot");
             }
         }
@@ -2268,6 +2268,7 @@ class CaptiveNPC {
     rescue(game) {
         if (this.rescued) return;
         this.rescued = true;
+        if (window.SoundEngine) SoundEngine.playNPCRescue();
         const floor = game.floor || 1;
 
         if (this.type === 'peasant') {
@@ -2835,8 +2836,11 @@ class Boss {
         game.enemies = game.enemies.filter(e => e !== this);
         game.addLog("KUTSAL ZAFER! Zindan Muhafızı devrildi!", "level");
         
-        // Müzik durdur ve seviye atlama sesi
-        SoundEngine.playLevelUp();
+        SoundEngine.stopBossFight();
+        SoundEngine.playBossVictory();
+        setTimeout(() => {
+            if (window.SoundEngine && !SoundEngine.isMuted && !SoundEngine.musicPlaying) SoundEngine.playMusic();
+        }, 3500);
         
         // Zindan kapılarını aç (portal etkinleşsin)
         World.portal.active = true;

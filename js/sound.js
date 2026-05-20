@@ -17,6 +17,9 @@ const SoundEngine = {
     menuAudio: null,
     menuMusicPlaying: false,
     menuSourceNode: null,
+    _sfxCache: {},
+    bossFightAudio: null,
+    bossFightPlaying: false,
 
     // Ritim ve nota dizilimleri (Cozy Retro RPG melodisi: Am - F - C - G)
     notes: {
@@ -464,6 +467,90 @@ const SoundEngine = {
         osc.stop(now + 0.30);
     },
 
+    // --- DOSYA TABANLI SFX YARDIMCI ---
+
+    _playSFX(key, path, volume = 0.85) {
+        if (this.isMuted) return;
+        this.init();
+        try {
+            if (!this._sfxCache[key]) this._sfxCache[key] = new Audio(path);
+            const clone = this._sfxCache[key].cloneNode();
+            clone.volume = volume;
+            clone.play().catch(() => {});
+        } catch(e) {}
+    },
+
+    // 17. Okçu Saldırısı
+    playArcherAttack() { this._playSFX('archer', 'sesler/archer_attack_sound.wav'); },
+
+    // 18. Boss Zafer Fanfarı (Boss öldürme)
+    playBossVictory() { this._playSFX('boss_victory', 'sesler/boss_death_sound.mp3', 0.9); },
+
+    // 19. Boss Savaş BGM'i (Loops — procedural müziğin yerini alır)
+    startBossFight() {
+        if (this.isMuted) return;
+        this.init();
+        this.stopMusic();
+        if (!this.bossFightAudio) {
+            this.bossFightAudio = new Audio('sesler/boss_figth_sound.mp3');
+            this.bossFightAudio.loop = true;
+        }
+        this.bossFightAudio.volume = 1.0;
+        this.bossFightAudio.currentTime = 0;
+        this.bossFightAudio.play().catch(() => {});
+        this.bossFightPlaying = true;
+    },
+
+    stopBossFight() {
+        if (this.bossFightAudio) {
+            this.bossFightAudio.pause();
+            this.bossFightAudio.currentTime = 0;
+        }
+        this.bossFightPlaying = false;
+    },
+
+    // 20. Ekipman Kuşanma (slot'a özgü)
+    playEquip(slot, weaponType) {
+        if (slot === 'weapon') {
+            if (weaponType && weaponType.includes('bow'))
+                return this._playSFX('eq_bow', 'sesler/bow_equipt_sound.mp3');
+            if (weaponType && weaponType.includes('staff'))
+                return this._playSFX('eq_staff', 'sesler/staff_equip_sound.wav');
+            return this._playSFX('eq_armor', 'sesler/armor_equetmant_sound.wav');
+        }
+        const map = {
+            helmet:   'sesler/kask_equipt_sound.wav',
+            necklace: 'sesler/kolye_kusanma_sound.wav',
+            earrings: 'sesler/kupe_equip_sound.wav',
+        };
+        const path = map[slot] || 'sesler/armor_equetmant_sound.wav';
+        this._playSFX('eq_' + slot, path);
+    },
+
+    // 21. Kritik Vuruş
+    playCritical() { this._playSFX('critical', 'sesler/critical_damage_sound.wav'); },
+
+    // 22. Demirci Birleştirme
+    playForge() { this._playSFX('forge', 'sesler/forge_craft_sound.wav'); },
+
+    // 23. Altın Toplama (gerçek ses)
+    playGoldPick() { this._playSFX('gold', 'sesler/gold_pick_sound.wav', 0.7); },
+
+    // 24. Eşya Toplama (ekipman / iksir)
+    playItemPick() { this._playSFX('item_pick', 'sesler/item_pick_sound.wav', 0.8); },
+
+    // 25. Büyücü Saldırısı
+    playMageAttack() { this._playSFX('mage_atk', 'sesler/mage_attack_sound.wav'); },
+
+    // 26. NPC Kurtarma
+    playNPCRescue() { this._playSFX('npc_rescue', 'sesler/npc_kurtarma_sound.wav'); },
+
+    // 27. Eşya Parçalama (Salvage)
+    playSalvage() { this._playSFX('salvage', 'sesler/salvage_sound_parcalama_.wav'); },
+
+    // 28. Ruh Taşı / Meta Yükseltme
+    playSoulstone() { this._playSFX('soulstone', 'sesler/soulstones_craft_sound.wav'); },
+
     // --- BGM: ARKA PLAN MÜZİĞİ ---
     
     // Prosedürel 8-Bit Retro Müzik Motoru (Loops)
@@ -555,6 +642,7 @@ const SoundEngine = {
         }
         this.musicPlaying = false;
         this._combatMode = false;
+        this.stopBossFight();
     },
 
     playMenuMusic() {

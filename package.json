@@ -31,7 +31,8 @@
       "js/**/*",
       "electron-main.js",
       "iron_belltomb.mp3",
-      "splash.jpg"
+      "splash.jpg",
+      "sesler/**/*"
     ]
   },
   "dependencies": {
