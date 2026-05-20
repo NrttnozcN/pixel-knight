@@ -246,6 +246,14 @@ const GameEngine = {
         this.tutorialStep = localStorage.getItem('pk_tutorial_done') ? -1 : 0;
         this.tutorialTimer = 0;
 
+        // Diyalog sistemi sıfırla ve Bölge 1 girişini tetikle
+        this._firstBossKilled  = false;
+        this._firstChestOpened = false;
+        if (window.DialogSystem) {
+            DialogSystem.reset();
+            setTimeout(() => DialogSystem.triggerZoneEntry(1), 1200);
+        }
+
         // 2. Varlıkları Haritaya Yerleştir
         this.spawnMapEntities();
 
@@ -315,6 +323,17 @@ const GameEngine = {
         // Hikaye diyalogları: Her 10. katta bölge geçişi hikayesi
         if (this.floor % 10 === 0) {
             setTimeout(() => this.showStoryDialog(this.floor), 600);
+        }
+
+        // Diyalog sistemi: bölge geçişi ve kata özel diyalog
+        if (window.DialogSystem) {
+            const zone    = Math.ceil(this.floor / 10);
+            const prevZone = Math.ceil((this.floor - 1) / 10);
+            if (zone !== prevZone) {
+                setTimeout(() => DialogSystem.triggerZoneEntry(zone), 900);
+            } else {
+                DialogSystem.triggerFloor(this.floor);
+            }
         }
 
         this.updateUI();
@@ -413,6 +432,11 @@ const GameEngine = {
             // Can barını baştan doldur
             document.getElementById('boss-hp-bar').style.width = '100%';
             SoundEngine.playBossRoar();
+            // Boss pre-diyalogu tetikle
+            if (window.DialogSystem) {
+                const bossZone = Math.ceil(this.floor / 10);
+                setTimeout(() => DialogSystem.triggerBossPre(bossZone), 700);
+            }
         } else {
             document.getElementById('boss-hud').classList.remove('active');
         }
@@ -440,6 +464,11 @@ const GameEngine = {
             if (dist < interactRange && !chest.opened) {
                 chest.open(this);
                 openedAny = true;
+                // Diyalog: ilk sandık eventi
+                if (window.DialogSystem && !this._firstChestOpened) {
+                    this._firstChestOpened = true;
+                    setTimeout(() => DialogSystem.triggerEvent('first_chest'), 600);
+                }
             }
         });
 
@@ -1597,6 +1626,13 @@ const GameEngine = {
         // Satıcıyı Güncelle
         if (this.merchant) this.merchant.update(this.player, this);
 
+        // Diyalog: düşük can eventleri
+        if (window.DialogSystem && this.player) {
+            const hpRatio = this.player.hp / this.player.getMaxHp();
+            if (hpRatio <= 0.12) DialogSystem.triggerEvent('critical_hp');
+            else if (hpRatio <= 0.30) DialogSystem.triggerEvent('low_hp');
+        }
+
         // Başarım bildirimi sayacı
         if (this.achievementNotif && this.achievementNotif.timer > 0) this.achievementNotif.timer--;
         else if (this.achievementNotif && this.achievementNotif.timer === 0) this.achievementNotif = null;
@@ -1622,8 +1658,16 @@ const GameEngine = {
             }
 
             if (this.boss.hp <= 0) {
+                const bossZone = Math.ceil(this.floor / 10);
                 this.boss = null;
                 document.getElementById('boss-hud').classList.remove('active');
+                // Boss post-diyalogu tetikle
+                if (window.DialogSystem) DialogSystem.triggerBossPost(bossZone);
+                // İlk boss öldürme eventi
+                if (window.DialogSystem && !this._firstBossKilled) {
+                    this._firstBossKilled = true;
+                    setTimeout(() => DialogSystem.triggerEvent('first_boss_kill'), 2800);
+                }
                 // Kat 100 boss'u yenildi → ZAFERİ KAZAN!
                 if (this.floor === 100) {
                     setTimeout(() => this.showVictory(), 1200);
@@ -1686,6 +1730,9 @@ const GameEngine = {
         // 6. Uçan Metinleri Güncelle
         this.textParticles.forEach(tp => tp.update());
         this.textParticles = this.textParticles.filter(tp => tp.life > 0);
+
+        // 7. Diyalog sistemi güncelle
+        if (window.DialogSystem) DialogSystem.update(dt);
     },
 
     // --- GAME LOOP: EKRANA GÖRSELLERİ ÇİZ ---
@@ -1887,6 +1934,9 @@ const GameEngine = {
                 this.ctx.restore();
             }
         }
+
+        // Diyalog sistemi — her zaman en üstte çizilir
+        if (window.DialogSystem) DialogSystem.draw(this.ctx);
 
         // 3. Ekrana ek görsel HUD uyarıları çizdir (Portal Aktifse canvas ortasında yanıp sönen uyarı)
         if (this.state === 'playing' && World.portal.active) {

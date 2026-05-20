@@ -928,6 +928,10 @@ class Enemy {
         game.enemies = game.enemies.filter(e => e !== this);
         game.addLog(`${this.name} yenildi! +${this.xpReward} TP.`, "enemy-hit");
         game.killsCount++;
+        // Diyalog: ilk öldürme eventi
+        if (window.DialogSystem && game.killsCount === 1) {
+            setTimeout(() => DialogSystem.triggerEvent('first_kill'), 600);
+        }
         // Quest ve achievement takibi
         if (game._checkQuestProgress) game._checkQuestProgress('kill', { type: this.type });
         if (this.type && this.type.startsWith('slime')) {
@@ -1719,6 +1723,11 @@ class Player {
             // Seviye Atlama Fanfarı
             SoundEngine.playLevelUp();
             game.addLog(`SEVİYE ATLADIN! Artık Seviye ${this.level} Şövalyesisin!`, "level");
+            // Diyalog seviye eventi
+            if (window.DialogSystem) {
+                if (this.level === 5)  setTimeout(() => DialogSystem.triggerEvent('level_up_5'),  500);
+                if (this.level === 10) setTimeout(() => DialogSystem.triggerEvent('level_up_10'), 500);
+            }
 
             // Lv5: Silah Uzmanlığı
             if (this.level === 5 && this.specialization === null) {
@@ -2287,6 +2296,15 @@ class CaptiveNPC {
         // İstatistik izleme
         const prev = parseInt(localStorage.getItem('pk_rescues') || '0');
         localStorage.setItem('pk_rescues', prev + 1);
+
+        // Diyalog sistemi: NPC kurtarma konuşması
+        if (window.DialogSystem) {
+            setTimeout(() => DialogSystem.triggerNPC(this.type), 400);
+            // İlk kurtarma eventi
+            if (prev === 0) setTimeout(() => DialogSystem.triggerEvent('first_npc_rescue'), 3000);
+            // Çok sayıda kurtarma eventi
+            if (prev + 1 === 5) setTimeout(() => DialogSystem.triggerEvent('many_rescues'), 3000);
+        }
 
         // Quest ve başarım bildirimi
         if (game._checkQuestProgress) game._checkQuestProgress('npc_rescued', null);

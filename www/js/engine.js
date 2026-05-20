@@ -25,7 +25,9 @@ const InputManager = {
 
             // 'E' tuşuna tek basış etkileşimi (Keydown tetiklemesi)
             if (key === 'e') {
-                if (window.GameEngine) {
+                if (window.DialogSystem && window.DialogSystem.isActive()) {
+                    window.DialogSystem.advance();
+                } else if (window.GameEngine) {
                     if (window.GameEngine.state === 'playing') {
                         window.GameEngine.handleInteraction();
                     } else if (window.GameEngine.state === 'shop') {
