@@ -85,26 +85,28 @@
                     (function(){
                         var splash = document.getElementById('screen-splash');
                         var video  = document.getElementById('intro-video');
-                        var start  = document.getElementById('screen-start');
                         var done   = false;
 
                         function showStart() {
                             if (done) return;
                             done = true;
+                            var start = document.getElementById('screen-start');
                             splash.style.opacity = '0';
                             setTimeout(function(){
                                 splash.style.display = 'none';
                                 splash.classList.remove('active');
-                                start.classList.add('active');
-                                start.style.opacity = '0';
-                                setTimeout(function(){
-                                    start.style.transition = 'opacity 0.6s ease-in-out';
-                                    start.style.opacity = '1';
-                                }, 50);
+                                if (start) {
+                                    start.classList.add('active');
+                                    start.style.opacity = '0';
+                                    setTimeout(function(){
+                                        start.style.transition = 'opacity 0.6s ease-in-out';
+                                        start.style.opacity = '1';
+                                    }, 50);
+                                }
                             }, 700);
                         }
 
-                        // Video bitince geç
+                        // Video bitince geç; yüklenemezse 2sn sonra geç
                         if (video) {
                             video.addEventListener('ended', showStart);
                             video.addEventListener('error', function(){ setTimeout(showStart, 2000); });
@@ -113,7 +115,7 @@
                         }
 
                         // Herhangi bir tık/tuş → videoyu atla
-                        function skipIntro(e) {
+                        function skipIntro() {
                             document.removeEventListener('keydown',    skipIntro);
                             document.removeEventListener('click',      skipIntro);
                             document.removeEventListener('touchstart', skipIntro);
