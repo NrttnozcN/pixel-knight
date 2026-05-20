@@ -181,15 +181,24 @@ const GameEngine = {
             }
         });
 
-        // İlk kullanıcı etkileşiminde (tık, tuş, dokunuş) menü müziğini başlat
+        // Karakter seçim ekranı göründükten sonra ilk etkileşimde menü müziğini başlat
         const _startMenuMusic = () => {
-            if (!SoundEngine.isMuted && !SoundEngine.menuMusicPlaying && this.state !== 'playing') {
+            if (!SoundEngine.menuMusicPlaying && !SoundEngine.isMuted) {
                 SoundEngine.playMenuMusic();
             }
         };
-        document.addEventListener('click',      _startMenuMusic, { once: true });
-        document.addEventListener('keydown',    _startMenuMusic, { once: true });
-        document.addEventListener('touchstart', _startMenuMusic, { once: true });
+        // Splash'tan start ekranına geçince tetiklenecek — MutationObserver ile dinle
+        const _startObserver = new MutationObserver(() => {
+            const startScreen = document.getElementById('screen-start');
+            if (startScreen && startScreen.classList.contains('active')) {
+                _startObserver.disconnect();
+                document.addEventListener('click',      _startMenuMusic, { once: true });
+                document.addEventListener('keydown',    _startMenuMusic, { once: true });
+                document.addEventListener('touchstart', _startMenuMusic, { once: true });
+            }
+        });
+        const _startScreen = document.getElementById('screen-start');
+        if (_startScreen) _startObserver.observe(_startScreen, { attributes: true, attributeFilter: ['class'] });
     },
 
     // Yeni Bir Oyuna Sıfırdan Başla

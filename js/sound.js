@@ -12,7 +12,7 @@ const SoundEngine = {
     musicInterval: null,
     _combatInterval: null,
     _combatMode: false,
-    isMuted: true, // Varsayılan olarak tarayıcı politikaları nedeniyle sessiz başlar
+    isMuted: false,
     musicPlaying: false,
     menuAudio: null,
     menuMusicPlaying: false,
