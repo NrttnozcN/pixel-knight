@@ -23,6 +23,13 @@ const InputManager = {
                 e.preventDefault();
             }
 
+            // Dialogue can be advanced with common confirm keys.
+            if (['e', 'enter', ' '].includes(key) && window.DialogSystem && window.DialogSystem.isActive()) {
+                window.DialogSystem.advance();
+                e.preventDefault();
+                return;
+            }
+
             // 'E' tuşuna tek basış etkileşimi (Keydown tetiklemesi)
             if (key === 'e') {
                 if (window.DialogSystem && window.DialogSystem.isActive()) {
@@ -71,6 +78,80 @@ const InputManager = {
             Keyboard[e.key.toLowerCase()] = false;
         });
 
+        // ─── DEBUG ŞİFRESİ: "erevorn" yazınca aktif olur ───────────────────
+        const DEBUG_CODE = 'erevorn';
+        let _debugBuffer = '';
+        window.addEventListener('keydown', (e) => {
+            if (!window.GameEngine) return;
+            const g = window.GameEngine;
+
+            // Şifre tampon güncelleme
+            _debugBuffer = (_debugBuffer + e.key.toLowerCase()).slice(-DEBUG_CODE.length);
+            if (_debugBuffer === DEBUG_CODE) {
+                g._debugMode = !g._debugMode;
+                const msg = g._debugMode ? '🛠️ DEBUG MODU AÇIK' : '🛠️ DEBUG MODU KAPALI';
+                if (g.addLog) g.addLog(msg, 'level');
+                // Ekrana büyük yazı göster
+                const el = document.createElement('div');
+                el.textContent = msg;
+                el.style.cssText = 'position:fixed;top:40%;left:50%;transform:translate(-50%,-50%);font-family:monospace;font-size:22px;color:#39ff14;background:rgba(0,0,0,0.85);padding:16px 32px;border:2px solid #39ff14;border-radius:6px;z-index:9999;pointer-events:none';
+                document.body.appendChild(el);
+                setTimeout(() => el.remove(), 2000);
+                _debugBuffer = '';
+                return;
+            }
+
+            if (!g._debugMode || g.state !== 'playing') return;
+
+            // F → Sonraki kata ışınlan (Floor Skip)
+            if (e.key === 'f' || e.key === 'F') {
+                g.nextFloor();
+                if (g.addLog) g.addLog(`⏭️ DEBUG: Kat ${g.floor}'e atlandı`, 'level');
+            }
+
+            // Shift+F → Belirli bir kata atla (konsola sor)
+            if (e.key === 'F' && e.shiftKey) {
+                const target = parseInt(prompt('Hangi kata atlamak istiyorsun? (1-100)'), 10);
+                if (target >= 1 && target <= 100 && !isNaN(target)) {
+                    g.floor = target - 1;
+                    g.nextFloor();
+                    if (g.addLog) g.addLog(`⏭️ DEBUG: Kat ${g.floor}'e ışınlandın`, 'level');
+                }
+            }
+
+            // G → God Mod toggle (hasar almaz)
+            if (e.key === 'g' || e.key === 'G') {
+                g._godMode = !g._godMode;
+                if (g.addLog) g.addLog(g._godMode ? '🛡️ GOD MOD: AÇIK' : '🛡️ GOD MOD: KAPALI', 'level');
+            }
+
+            // K → Tüm düşmanları öldür
+            if (e.key === 'k' || e.key === 'K') {
+                let count = 0;
+                [...g.enemies].forEach(en => {
+                    if (en !== g.boss) { en.hp = 0; count++; }
+                });
+                if (g.boss) { g.boss.hp = 1; }
+                if (g.addLog) g.addLog(`💀 DEBUG: ${count} düşman yok edildi`, 'enemy');
+            }
+
+            // H → Tam can doldur
+            if (e.key === 'h' || e.key === 'H') {
+                if (g.player) {
+                    g.player.hp = g.player.getMaxHp ? g.player.getMaxHp() : g.player.stats.maxHp;
+                    if (g.addLog) g.addLog('💚 DEBUG: Can dolduruldu', 'loot');
+                }
+            }
+
+            // J → +1000 altın
+            if (e.key === 'j' || e.key === 'J') {
+                if (g.player) {
+                    g.player.gold += 1000;
+                    if (g.addLog) g.addLog('💰 DEBUG: +1000 altın eklendi', 'loot');
+                }
+            }
+        });
+
         // 2. Fare Hareketlerini Dinle
         canvas.addEventListener('mousemove', (e) => {
             const rect = canvas.getBoundingClientRect();
@@ -85,6 +166,11 @@ const InputManager = {
         // 3. Fare Tıklamalarını Dinle
         canvas.addEventListener('mousedown', (e) => {
             if (e.button === 0) { // Sol tık
+                if (window.DialogSystem && window.DialogSystem.isActive()) {
+                    window.DialogSystem.advance();
+                    e.preventDefault();
+                    return;
+                }
                 Mouse.clicked = true;
                 
                 // Ses motorunu tarayıcı politikaları nedeniyle ilk tıklamada gizlice başlat

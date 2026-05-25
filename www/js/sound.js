@@ -17,6 +17,9 @@ const SoundEngine = {
     menuAudio: null,
     menuMusicPlaying: false,
     menuSourceNode: null,
+    _sfxCache: {},
+    bossFightAudio: null,
+    bossFightPlaying: false,
 
     // Ritim ve nota dizilimleri (Cozy Retro RPG melodisi: Am - F - C - G)
     notes: {
@@ -86,7 +89,281 @@ const SoundEngine = {
     },
 
     // --- SFX: SES EFEKTLERİ ---
-    
+
+    // ── WARRIOR HEAVY COMBAT SOUNDS ──────────────────────────────────────────
+
+    // Büyük kılıç salma geri çekiş sesi — metal kazıma, alçak gürültü
+    playWarriorWindup() {
+        if (this.isMuted || !this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(160, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(70, this.ctx.currentTime + 0.16);
+        gain.gain.setValueAtTime(0.08, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.16);
+        osc.connect(gain); gain.connect(this.masterGain);
+        osc.start(); osc.stop(this.ctx.currentTime + 0.16);
+    },
+
+    // Büyük kılıç salınışı — derin bas + metalik whoosh
+    playWarriorSwing() {
+        if (this.isMuted || !this.ctx) return;
+        // Sub-bass whomp
+        const bass = this.ctx.createOscillator();
+        const bassGain = this.ctx.createGain();
+        bass.type = 'sine';
+        bass.frequency.setValueAtTime(55, this.ctx.currentTime);
+        bass.frequency.exponentialRampToValueAtTime(18, this.ctx.currentTime + 0.28);
+        bassGain.gain.setValueAtTime(0.55, this.ctx.currentTime);
+        bassGain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.28);
+        bass.connect(bassGain); bassGain.connect(this.masterGain);
+        bass.start(); bass.stop(this.ctx.currentTime + 0.28);
+        // Metallic air rush noise
+        const bufLen = Math.floor(this.ctx.sampleRate * 0.22);
+        const buf = this.ctx.createBuffer(1, bufLen, this.ctx.sampleRate);
+        const bd = buf.getChannelData(0);
+        for (let i = 0; i < bufLen; i++) bd[i] = (Math.random()*2-1) * (1 - i/bufLen) * 0.7;
+        const noise = this.ctx.createBufferSource();
+        noise.buffer = buf;
+        const filt = this.ctx.createBiquadFilter();
+        filt.type = 'bandpass'; filt.frequency.value = 700; filt.Q.value = 2.5;
+        const ng = this.ctx.createGain();
+        ng.gain.setValueAtTime(0.3, this.ctx.currentTime);
+        ng.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.22);
+        noise.connect(filt); filt.connect(ng); ng.connect(this.masterGain);
+        noise.start();
+    },
+
+    // Darbeli metal çarpma — sub-bass thud + armor crack
+    playWarriorImpact() {
+        if (this.isMuted || !this.ctx) return;
+        // Deep thud
+        const thud = this.ctx.createOscillator();
+        const tg = this.ctx.createGain();
+        thud.type = 'sine';
+        thud.frequency.setValueAtTime(75, this.ctx.currentTime);
+        thud.frequency.exponentialRampToValueAtTime(12, this.ctx.currentTime + 0.22);
+        tg.gain.setValueAtTime(0.85, this.ctx.currentTime);
+        tg.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.22);
+        thud.connect(tg); tg.connect(this.masterGain);
+        thud.start(); thud.stop(this.ctx.currentTime + 0.22);
+        // Metal crack transient
+        const cLen = Math.floor(this.ctx.sampleRate * 0.07);
+        const cBuf = this.ctx.createBuffer(1, cLen, this.ctx.sampleRate);
+        const cd = cBuf.getChannelData(0);
+        for (let i = 0; i < cLen; i++) cd[i] = (Math.random()*2-1) * Math.exp(-i/(cLen*0.25));
+        const crack = this.ctx.createBufferSource();
+        crack.buffer = cBuf;
+        const cf = this.ctx.createBiquadFilter();
+        cf.type = 'highpass'; cf.frequency.value = 2800;
+        const cg = this.ctx.createGain();
+        cg.gain.setValueAtTime(0.65, this.ctx.currentTime);
+        crack.connect(cf); cf.connect(cg); cg.connect(this.masterGain);
+        crack.start();
+    },
+
+    // Son darbe sesi — dramatik bas patlama + sessizlik
+    playExecution() {
+        if (this.isMuted || !this.ctx) return;
+        const slam = this.ctx.createOscillator();
+        const sg = this.ctx.createGain();
+        slam.type = 'sine';
+        slam.frequency.setValueAtTime(45, this.ctx.currentTime);
+        slam.frequency.exponentialRampToValueAtTime(8, this.ctx.currentTime + 0.55);
+        sg.gain.setValueAtTime(0.9, this.ctx.currentTime);
+        sg.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.55);
+        slam.connect(sg); sg.connect(this.masterGain);
+        slam.start(); slam.stop(this.ctx.currentTime + 0.55);
+    },
+
+    // Ağır zırh adım sesi — kısa bas darbe
+    playHeavyFootstep() {
+        if (this.isMuted || !this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(42, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(18, this.ctx.currentTime + 0.07);
+        gain.gain.setValueAtTime(0.16, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.07);
+        osc.connect(gain); gain.connect(this.masterGain);
+        osc.start(); osc.stop(this.ctx.currentTime + 0.07);
+    },
+
+    // ── RANGER PRECISION HUNTER SOUNDS ──────────────────────────────────────
+
+    // Yay germe — ince kiriş fısıltısı
+    playBowDraw() {
+        if (this.isMuted || !this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const g = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(380, this.ctx.currentTime);
+        osc.frequency.linearRampToValueAtTime(520, this.ctx.currentTime + 0.18);
+        g.gain.setValueAtTime(0.04, this.ctx.currentTime);
+        g.gain.linearRampToValueAtTime(0.07, this.ctx.currentTime + 0.15);
+        g.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.18);
+        osc.connect(g); g.connect(this.masterGain);
+        osc.start(); osc.stop(this.ctx.currentTime + 0.18);
+    },
+
+    // Ok bırakma — keskin tel çırpması + hız whoosh
+    playBowRelease() {
+        if (this.isMuted || !this.ctx) return;
+        // Snap transient
+        const bLen = Math.floor(this.ctx.sampleRate * 0.05);
+        const buf = this.ctx.createBuffer(1, bLen, this.ctx.sampleRate);
+        const d = buf.getChannelData(0);
+        for (let i = 0; i < bLen; i++) d[i] = (Math.random()*2-1) * Math.exp(-i/(bLen*0.12));
+        const snap = this.ctx.createBufferSource();
+        snap.buffer = buf;
+        const f = this.ctx.createBiquadFilter();
+        f.type = 'bandpass'; f.frequency.value = 1800; f.Q.value = 1.5;
+        const sg = this.ctx.createGain();
+        sg.gain.setValueAtTime(0.5, this.ctx.currentTime);
+        snap.connect(f); f.connect(sg); sg.connect(this.masterGain);
+        snap.start();
+        // Velocity whoosh
+        const osc = this.ctx.createOscillator();
+        const og = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(900, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(180, this.ctx.currentTime + 0.10);
+        og.gain.setValueAtTime(0.12, this.ctx.currentTime);
+        og.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.10);
+        osc.connect(og); og.connect(this.masterGain);
+        osc.start(); osc.stop(this.ctx.currentTime + 0.10);
+    },
+
+    // Gölge adımı — neredeyse sessiz, yumuşak bas
+    playShadowStep() {
+        if (this.isMuted || !this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const g = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(70, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(35, this.ctx.currentTime + 0.05);
+        g.gain.setValueAtTime(0.035, this.ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.05);
+        osc.connect(g); g.connect(this.masterGain);
+        osc.start(); osc.stop(this.ctx.currentTime + 0.05);
+    },
+
+    // ── MAGE FORBIDDEN COSMIC MAGIC SOUNDS ───────────────────────────────────
+
+    // Rün yüklenme — tuhaf armonik tırmanma
+    playRuneCharge() {
+        if (this.isMuted || !this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const osc2 = this.ctx.createOscillator();
+        const g = this.ctx.createGain();
+        osc.type = 'sine';
+        osc2.type = 'triangle';
+        osc.frequency.setValueAtTime(220, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(440, this.ctx.currentTime + 0.28);
+        osc2.frequency.setValueAtTime(330, this.ctx.currentTime);
+        osc2.frequency.exponentialRampToValueAtTime(660, this.ctx.currentTime + 0.28);
+        g.gain.setValueAtTime(0.06, this.ctx.currentTime);
+        g.gain.linearRampToValueAtTime(0.11, this.ctx.currentTime + 0.22);
+        g.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.28);
+        osc.connect(g); osc2.connect(g); g.connect(this.masterGain);
+        osc.start(); osc.stop(this.ctx.currentTime + 0.28);
+        osc2.start(); osc2.stop(this.ctx.currentTime + 0.28);
+    },
+
+    // Yokluk büyüsü atma — gerçeklik yarığı + düşen bas
+    playVoidCast() {
+        if (this.isMuted || !this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const g = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(1100, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(65, this.ctx.currentTime + 0.32);
+        g.gain.setValueAtTime(0.18, this.ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.32);
+        const filt = this.ctx.createBiquadFilter();
+        filt.type = 'lowpass'; filt.frequency.value = 900;
+        osc.connect(filt); filt.connect(g); g.connect(this.masterGain);
+        osc.start(); osc.stop(this.ctx.currentTime + 0.32);
+    },
+
+    // Yokluk içe çöküşü — ters çarpma geçişi
+    playVoidImplosion() {
+        if (this.isMuted || !this.ctx) return;
+        const bLen = Math.floor(this.ctx.sampleRate * 0.12);
+        const buf = this.ctx.createBuffer(1, bLen, this.ctx.sampleRate);
+        const d = buf.getChannelData(0);
+        for (let i = 0; i < bLen; i++) d[i] = (Math.random()*2-1) * (i / bLen) * 0.9 * Math.exp(-(i/(bLen*0.7)));
+        const src = this.ctx.createBufferSource();
+        src.buffer = buf;
+        const f = this.ctx.createBiquadFilter();
+        f.type = 'bandpass'; f.frequency.value = 420; f.Q.value = 3.0;
+        const g = this.ctx.createGain();
+        g.gain.setValueAtTime(0.55, this.ctx.currentTime);
+        src.connect(f); f.connect(g); g.connect(this.masterGain);
+        src.start();
+    },
+
+    // ── SINIF KİMLİĞİ AMBIENT ────────────────────────────────────────────────
+
+    // Savaşçı: Derin zırh nefesi (bekleme anı)
+    playArmorBreath() {
+        if (this.isMuted || !this.ctx) return;
+        const bLen = Math.floor(this.ctx.sampleRate * 0.35);
+        const buf = this.ctx.createBuffer(1, bLen, this.ctx.sampleRate);
+        const d = buf.getChannelData(0);
+        for (let i = 0; i < bLen; i++) {
+            const env = Math.sin((i / bLen) * Math.PI);
+            d[i] = (Math.random()*2-1) * env * 0.3;
+        }
+        const src = this.ctx.createBufferSource();
+        src.buffer = buf;
+        const f = this.ctx.createBiquadFilter();
+        f.type = 'lowpass'; f.frequency.value = 180;
+        const g = this.ctx.createGain();
+        g.gain.setValueAtTime(0.07, this.ctx.currentTime);
+        src.connect(f); f.connect(g); g.connect(this.masterGain);
+        src.start();
+    },
+
+    // Nişancı: Rüzgar fısıltısı (bekleme anı)
+    playWindWhisper() {
+        if (this.isMuted || !this.ctx) return;
+        const bLen = Math.floor(this.ctx.sampleRate * 0.55);
+        const buf = this.ctx.createBuffer(1, bLen, this.ctx.sampleRate);
+        const d = buf.getChannelData(0);
+        for (let i = 0; i < bLen; i++) {
+            const env = Math.sin((i / bLen) * Math.PI) * 0.5;
+            d[i] = (Math.random()*2-1) * env;
+        }
+        const src = this.ctx.createBufferSource();
+        src.buffer = buf;
+        const f = this.ctx.createBiquadFilter();
+        f.type = 'bandpass'; f.frequency.value = 1200; f.Q.value = 0.8;
+        const g = this.ctx.createGain();
+        g.gain.setValueAtTime(0.04, this.ctx.currentTime);
+        src.connect(f); f.connect(g); g.connect(this.masterGain);
+        src.start();
+    },
+
+    // Büyücü: Rün titreşimi (bekleme anı)
+    playRuneAmbient() {
+        if (this.isMuted || !this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const g = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(220, this.ctx.currentTime);
+        osc.frequency.linearRampToValueAtTime(230, this.ctx.currentTime + 0.4);
+        g.gain.setValueAtTime(0.0, this.ctx.currentTime);
+        g.gain.linearRampToValueAtTime(0.045, this.ctx.currentTime + 0.2);
+        g.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.6);
+        osc.connect(g); g.connect(this.masterGain);
+        osc.start(); osc.stop(this.ctx.currentTime + 0.6);
+    },
+
+    // ─────────────────────────────────────────────────────────────────────────
+
     // 1. Kılıç Savurma (Sword Swing) - Triangle dalgası ile frekans düşüşü
     playSwing() {
         if (this.isMuted || !this.ctx) return;
@@ -464,6 +741,90 @@ const SoundEngine = {
         osc.stop(now + 0.30);
     },
 
+    // --- DOSYA TABANLI SFX YARDIMCI ---
+
+    _playSFX(key, path, volume = 0.85) {
+        if (this.isMuted) return;
+        this.init();
+        try {
+            if (!this._sfxCache[key]) this._sfxCache[key] = new Audio(path);
+            const clone = this._sfxCache[key].cloneNode();
+            clone.volume = volume;
+            clone.play().catch(() => {});
+        } catch(e) {}
+    },
+
+    // 17. Okçu Saldırısı
+    playArcherAttack() { this._playSFX('archer', 'sesler/archer_attack_sound.wav'); },
+
+    // 18. Boss Zafer Fanfarı (Boss öldürme)
+    playBossVictory() { this._playSFX('boss_victory', 'sesler/boss_death_sound.mp3', 0.9); },
+
+    // 19. Boss Savaş BGM'i (Loops — procedural müziğin yerini alır)
+    startBossFight() {
+        if (this.isMuted) return;
+        this.init();
+        this.stopMusic();
+        if (!this.bossFightAudio) {
+            this.bossFightAudio = new Audio('sesler/boss_figth_sound.mp3');
+            this.bossFightAudio.loop = true;
+        }
+        this.bossFightAudio.volume = 1.0;
+        this.bossFightAudio.currentTime = 0;
+        this.bossFightAudio.play().catch(() => {});
+        this.bossFightPlaying = true;
+    },
+
+    stopBossFight() {
+        if (this.bossFightAudio) {
+            this.bossFightAudio.pause();
+            this.bossFightAudio.currentTime = 0;
+        }
+        this.bossFightPlaying = false;
+    },
+
+    // 20. Ekipman Kuşanma (slot'a özgü)
+    playEquip(slot, weaponType) {
+        if (slot === 'weapon') {
+            if (weaponType && weaponType.includes('bow'))
+                return this._playSFX('eq_bow', 'sesler/bow_equipt_sound.mp3');
+            if (weaponType && weaponType.includes('staff'))
+                return this._playSFX('eq_staff', 'sesler/staff_equip_sound.wav');
+            return this._playSFX('eq_armor', 'sesler/armor_equetmant_sound.wav');
+        }
+        const map = {
+            helmet:   'sesler/kask_equipt_sound.wav',
+            necklace: 'sesler/kolye_kusanma_sound.wav',
+            earrings: 'sesler/kupe_equip_sound.wav',
+        };
+        const path = map[slot] || 'sesler/armor_equetmant_sound.wav';
+        this._playSFX('eq_' + slot, path);
+    },
+
+    // 21. Kritik Vuruş
+    playCritical() { this._playSFX('critical', 'sesler/critical_damage_sound.wav'); },
+
+    // 22. Demirci Birleştirme
+    playForge() { this._playSFX('forge', 'sesler/forge_craft_sound.wav'); },
+
+    // 23. Altın Toplama (gerçek ses)
+    playGoldPick() { this._playSFX('gold', 'sesler/gold_pick_sound.wav', 0.7); },
+
+    // 24. Eşya Toplama (ekipman / iksir)
+    playItemPick() { this._playSFX('item_pick', 'sesler/item_pick_sound.wav', 0.8); },
+
+    // 25. Büyücü Saldırısı
+    playMageAttack() { this._playSFX('mage_atk', 'sesler/mage_attack_sound.wav'); },
+
+    // 26. NPC Kurtarma
+    playNPCRescue() { this._playSFX('npc_rescue', 'sesler/npc_kurtarma_sound.wav'); },
+
+    // 27. Eşya Parçalama (Salvage)
+    playSalvage() { this._playSFX('salvage', 'sesler/salvage_sound_parcalama_.wav'); },
+
+    // 28. Ruh Taşı / Meta Yükseltme
+    playSoulstone() { this._playSFX('soulstone', 'sesler/soulstones_craft_sound.wav'); },
+
     // --- BGM: ARKA PLAN MÜZİĞİ ---
     
     // Prosedürel 8-Bit Retro Müzik Motoru (Loops)
@@ -555,6 +916,7 @@ const SoundEngine = {
         }
         this.musicPlaying = false;
         this._combatMode = false;
+        this.stopBossFight();
     },
 
     playMenuMusic() {
@@ -563,29 +925,38 @@ const SoundEngine = {
 
         this.init();
 
+        // İlk çağrıda Audio nesnesini oluştur
         if (!this.menuAudio) {
             this.menuAudio = new Audio('iron_belltomb.mp3');
             this.menuAudio.loop = true;
+            // Müzik durursa (loop=false veya hata) flag'i sıfırla
+            this.menuAudio.addEventListener('ended', () => { this.menuMusicPlaying = false; });
+            this.menuAudio.addEventListener('pause', () => {
+                // Sadece dışarıdan durdurulanları yakala (stopMenuMusic çağrısı)
+                if (!this.menuAudio.loop) this.menuMusicPlaying = false;
+            });
         }
 
-        // Connect to Web Audio masterGain if context exists and not connected yet
+        // Web Audio masterGain'e bağla (yalnızca bir kez — HTMLMediaElement kısıtı)
         if (this.ctx && this.masterGain && !this.menuSourceNode) {
             try {
                 this.menuSourceNode = this.ctx.createMediaElementSource(this.menuAudio);
                 this.menuSourceNode.connect(this.masterGain);
             } catch (e) {
+                // Zaten bağlıysa sessizce geç
                 console.warn("[Sound Engine] Media element source connection failed:", e);
             }
         }
 
-        // Set volume to 1.0 because the masterGain already handles the actual volume level
+        // masterGain zaten volume'u yönetiyor; audio elemanı kendi sesini max tut
         this.menuAudio.volume = 1.0;
 
         this.menuAudio.play().then(() => {
             this.menuMusicPlaying = true;
-            console.log("[Sound Engine] Menu music started playing.");
+            console.log("%c[Sound Engine] Menü müziği başladı.", "color: #b026ff; font-weight: bold;");
         }).catch(err => {
-            console.warn("[Sound Engine] Menu music play failed (autoplay restriction):", err);
+            console.warn("[Sound Engine] Menü müziği başlatılamadı (autoplay kısıtı):", err);
+            this.menuMusicPlaying = false;
         });
     },
 
@@ -630,10 +1001,12 @@ const SoundEngine = {
 };
 
 // Ses butonunu sayfada dinle
+// stopPropagation: bu tık document'a ulaşmasın (intro-skip listener'ını tetiklemesin)
 window.addEventListener('DOMContentLoaded', () => {
     const btn = document.getElementById('btn-sound');
     if (btn) {
-        btn.addEventListener('click', () => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
             SoundEngine.toggleMute();
         });
     }

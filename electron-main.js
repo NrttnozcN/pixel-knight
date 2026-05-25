@@ -1,4 +1,7 @@
-const { app, BrowserWindow, Menu } = require('electron');
+const _electron = require('electron');
+const app         = _electron.app         || _electron.default && _electron.default.app;
+const BrowserWindow = _electron.BrowserWindow || _electron.default && _electron.default.BrowserWindow;
+const Menu        = _electron.Menu        || _electron.default && _electron.default.Menu;
 const path = require('path');
 
 function createWindow() {
@@ -27,10 +30,14 @@ function createWindow() {
         win.show();
     });
 
-    // F11 ile tam ekran toggle
+    // F11 ile tam ekran toggle, F12 ile DevTools
     win.webContents.on('before-input-event', (event, input) => {
-        if (input.key === 'F11' && input.type === 'keyDown') {
-            win.setFullScreen(!win.isFullScreen());
+        if (input.type === 'keyDown') {
+            if (input.key === 'F11') {
+                win.setFullScreen(!win.isFullScreen());
+            } else if (input.key === 'F12') {
+                win.webContents.toggleDevTools();
+            }
         }
     });
 }

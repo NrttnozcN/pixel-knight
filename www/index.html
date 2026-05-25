@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>EREVORN - Retro 2D Dungeon Crawler</title>
-    <link rel="icon" type="image/png" href="gorseller/erevorn_favicon.png">
+    <link rel="icon" type="image/png" href="erevorn_favicon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
@@ -25,7 +25,7 @@
         <!-- Üst Başlık -->
         <header class="game-header">
             <div class="header-logo">
-                <img src="gorseller/erevorn_main_logo.png" alt="EREVORN" style="height:36px; object-fit:contain; image-rendering:pixelated; filter:drop-shadow(0 0 8px var(--neon-cyan));">
+                <img src="erevorn_main_logo.png" alt="EREVORN" style="height:36px; object-fit:contain; image-rendering:pixelated; filter:drop-shadow(0 0 8px var(--neon-cyan));">
             </div>
             <div class="header-status">
                 <span class="floor-badge">
@@ -72,20 +72,37 @@
                         </div>
                     </div>
 
-                    <!-- Katman 0: Giriş Jenerik Video -->
-                    <div id="screen-splash" class="overlay-screen active" style="z-index: 999; background: #000; display: flex; flex-direction: column; justify-content: center; align-items: center; opacity: 1; transition: opacity 0.8s ease-in-out; cursor: pointer;">
-                        <video id="intro-video" autoplay muted playsinline
-                            style="width:100%; height:100%; object-fit:contain; display:block;">
-                            <source src="gorseller/giris_animasyonu.mp4" type="video/mp4">
+                    <!-- Katman 0: Giriş Jenerik Video & Kapak -->
+                    <div id="screen-splash" class="overlay-screen active" style="z-index: 999; background: #000; display: flex; flex-direction: column; justify-content: center; align-items: center; opacity: 1; transition: opacity 0.8s ease-in-out; cursor: default;">
+                        
+                        <!-- Başlangıç Karşılama Kapağı (Autoplay kısıtını aşmak ve sesi açmak için) -->
+                        <div id="splash-cover" style="position:absolute; inset:0; background: url('splash.jpg') no-repeat center center; background-size: cover; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 10;">
+                            <div style="background: rgba(0,0,0,0.75); width:100%; height:100%; display:flex; flex-direction:column; justify-content:center; align-items:center; gap:20px; backdrop-filter: blur(4px);">
+                                <h1 class="pixel-text" style="font-size:36px; background:linear-gradient(to right, var(--neon-cyan), var(--neon-purple)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; filter:drop-shadow(0 2px 15px rgba(0, 240, 255, 0.6)); letter-spacing:4px; margin-bottom:5px; animation: pulseGlow 2s infinite ease-in-out;">EREVORN</h1>
+                                <p class="pixel-text" style="font-size:8px; color:var(--text-secondary); letter-spacing:2px;">RETRO 2D DUNGEON CRAWLER</p>
+                                <button id="btn-start-intro" class="action-btn pixel-text" style="font-size:11px; margin-top:20px; padding:18px 42px; border-radius:30px; letter-spacing:2px; cursor:pointer;">OYUNU BAŞLAT</button>
+                            </div>
+                        </div>
+
+                        <!-- Giriş Videosu -->
+                        <video id="intro-video" playsinline style="width:100%; height:100%; object-fit:contain; display:none;">
+                            <source src="giris_animasyonu.mp4" type="video/mp4">
                         </video>
-                        <p class="pixel-text" style="position:absolute; bottom:18px; left:0; right:0; text-align:center; font-size:7px; color:var(--neon-cyan); letter-spacing:3px; opacity:0; animation:splashSubTextFade 1s ease-in-out 1.5s forwards; pointer-events:none;">HERHANGİ BİR TUŞA BAS</p>
+
+                        <!-- Sağ Altta Şık Geç Butonu (Sadece video oynarken görünür) -->
+                        <button id="btn-skip-intro" class="pixel-text" style="display:none; position:fixed; bottom:24px; right:24px; background:rgba(0,0,0,0.6); border:1px solid var(--neon-cyan); color:var(--neon-cyan); padding:10px 20px; font-size:9px; border-radius:8px; cursor:pointer; box-shadow:0 0 10px rgba(0,240,255,0.25); transition:all 0.2s; z-index: 1001;">GEÇ ➔</button>
                     </div>
 
                     <script>
-                    (function(){
+                    document.addEventListener('DOMContentLoaded', function() {
                         var splash = document.getElementById('screen-splash');
+                        var cover = document.getElementById('splash-cover');
+                        var startBtn = document.getElementById('btn-start-intro');
+                        var skipBtn = document.getElementById('btn-skip-intro');
                         var video  = document.getElementById('intro-video');
                         var done   = false;
+                        var introWatchdog = null;
+                        var lastVideoTime = 0;
 
                         function showStart() {
                             if (done) return;
@@ -106,26 +123,94 @@
                             }, 700);
                         }
 
-                        // Video bitince geç; yüklenemezse 2sn sonra geç
-                        if (video) {
-                            video.addEventListener('ended', showStart);
-                            video.addEventListener('error', function(){ setTimeout(showStart, 2000); });
-                        } else {
-                            setTimeout(showStart, 3000);
+                        function startIntro() {
+                            // AudioContext'i kullanıcı etkileşimi anında başlat
+                            if (window.SoundEngine) {
+                                SoundEngine.init();
+                                if (SoundEngine.ctx && SoundEngine.ctx.state === 'suspended') {
+                                    SoundEngine.ctx.resume();
+                                }
+                            }
+                            
+                            // Kapağı kaldır, videoyu göster ve sesli oynat
+                            if (cover) cover.style.display = 'none';
+                            if (video) {
+                                video.style.display = 'block';
+                                video.muted = false;
+                                lastVideoTime = 0;
+                                var playPromise = video.play();
+                                if (playPromise !== undefined) {
+                                    playPromise.catch(function(err) {
+                                        console.warn("Video sesli oynatılamadı, sessize alınıyor:", err);
+                                        video.muted = true;
+                                        video.play().catch(function(){ setTimeout(skipIntro, 600); });
+                                    });
+                                }
+                                clearInterval(introWatchdog);
+                                introWatchdog = setInterval(function() {
+                                    if (done || !video || video.ended) {
+                                        clearInterval(introWatchdog);
+                                        return;
+                                    }
+                                    if (!video.paused && Math.abs(video.currentTime - lastVideoTime) < 0.05) {
+                                        clearInterval(introWatchdog);
+                                        skipIntro();
+                                        return;
+                                    }
+                                    lastVideoTime = video.currentTime;
+                                }, 4000);
+                            }
+                            if (skipBtn) skipBtn.style.display = 'block';
+
+                            // Klavye kısayolları (ESC veya Space tuşuna basınca geçebilsin)
+                            document.addEventListener('keydown', onKeyPress);
                         }
 
-                        // Herhangi bir tık/tuş → videoyu atla
+                        function onKeyPress(e) {
+                            if (e.key === 'Escape' || e.key === ' ' || e.code === 'Space') {
+                                document.removeEventListener('keydown', onKeyPress);
+                                skipIntro();
+                            }
+                        }
+
                         function skipIntro() {
-                            document.removeEventListener('keydown',    skipIntro);
-                            document.removeEventListener('click',      skipIntro);
-                            document.removeEventListener('touchstart', skipIntro);
+                            document.removeEventListener('keydown', onKeyPress);
+                            clearInterval(introWatchdog);
                             if (video) video.pause();
                             showStart();
                         }
-                        document.addEventListener('keydown',    skipIntro);
-                        document.addEventListener('click',      skipIntro);
-                        document.addEventListener('touchstart', skipIntro);
-                    })();
+
+                        // Event Listeners
+                        if (startBtn) {
+                            startBtn.addEventListener('click', function(e) {
+                                e.stopPropagation();
+                                startIntro();
+                            });
+                        }
+                        if (skipBtn) {
+                            skipBtn.addEventListener('click', function(e) {
+                                e.stopPropagation();
+                                skipIntro();
+                            });
+                        }
+
+                        // Klavye ile de başlatılabilsin (Enter veya Space)
+                        function initialKeyStart(e) {
+                            if (e.key === 'Enter' || e.key === ' ' || e.code === 'Space') {
+                                document.removeEventListener('keydown', initialKeyStart);
+                                startIntro();
+                            }
+                        }
+                        document.addEventListener('keydown', initialKeyStart);
+
+                        // Video bitince veya hata verince geç
+                        if (video) {
+                            video.addEventListener('ended', skipIntro);
+                            video.addEventListener('error', function(){ setTimeout(skipIntro, 2000); });
+                        } else {
+                            setTimeout(skipIntro, 3000);
+                        }
+                    });
                     </script>
 
                     <!-- Katman 1: Başlangıç Ekranı -->
@@ -309,6 +394,30 @@
                             <p class="description" style="color:var(--neon-gold)">Karanlığı alt ettin. Efsane doğdu!</p>
                             <div class="stats-summary" id="victory-stats" style="margin:16px 0"></div>
                             <button id="btn-victory-retry" class="action-btn pixel-text" style="background:linear-gradient(135deg,#b8860b,#ffd700);border-color:#ffd700;color:#000">
+                                ⚔️ YENİDEN OYNA
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Katman 5b: Son Seçim Ekranı -->
+                    <div id="screen-ending-choice" class="overlay-screen">
+                        <div class="screen-content" style="max-width:520px">
+                            <div style="font-size:36px;margin-bottom:6px">⚡</div>
+                            <h2 class="pixel-text text-glow" style="font-size:12px;letter-spacing:3px;color:var(--neon-gold)">KARAR ANI</h2>
+                            <p id="ending-choice-intro" class="description" style="font-size:11px;color:#ccc;margin:10px 0 6px"></p>
+                            <p id="ending-run-stats" class="description" style="font-size:9px;color:#888;margin:0 0 14px"></p>
+                            <div id="ending-choice-buttons" style="display:flex;flex-direction:column;gap:8px;width:100%"></div>
+                        </div>
+                    </div>
+
+                    <!-- Katman 5c: Son (Bitiş) Ekranı -->
+                    <div id="screen-ending" class="overlay-screen">
+                        <div class="screen-content">
+                            <div id="ending-icon" style="font-size:48px;margin-bottom:8px">🏆</div>
+                            <h2 id="ending-title" class="pixel-text text-glow large-text" style="letter-spacing:3px"></h2>
+                            <p id="ending-subtitle" class="description" style="color:#aaa;margin:6px 0 16px;font-size:11px"></p>
+                            <div class="stats-summary" id="ending-final-stats" style="margin:16px 0"></div>
+                            <button id="btn-ending-retry" class="action-btn pixel-text" style="background:linear-gradient(135deg,#1a1a2e,#2d2d4e);border-color:var(--neon-cyan);color:var(--neon-cyan)">
                                 ⚔️ YENİDEN OYNA
                             </button>
                         </div>
@@ -578,6 +687,7 @@
         <div id="tooltip-description" class="tooltip-desc">Eski bir şövalyenin kayıp kılıcı.</div>
         <div id="tooltip-sell-price" class="tooltip-sell-price"></div>
         <button id="btn-tooltip-salvage" class="tooltip-salvage-btn" style="display:none">⚡ PARÇALA</button>
+        <div id="tooltip-salvage-desc" class="tooltip-salvage-desc" style="display:none"></div>
         <div class="tooltip-action-hint">Kuşanmak veya kullanmak için tıkla</div>
     </div>
 

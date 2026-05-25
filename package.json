@@ -11,7 +11,7 @@
     "android:open": "npx cap open android"
   },
   "devDependencies": {
-    "electron": "^31.0.0",
+    "electron": "^28.3.3",
     "electron-builder": "^24.13.3"
   },
   "build": {
@@ -30,6 +30,7 @@
       "index.html",
       "style.css",
       "js/**/*",
+      "sprites/**/*",
       "electron-main.js",
       "iron_belltomb.mp3",
       "sesler/**/*",

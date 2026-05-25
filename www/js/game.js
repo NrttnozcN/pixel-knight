@@ -1,4 +1,4 @@
-/**
+﻿/**
  * ==========================================================================
  * EREVORN - ORCHESTRATOR & STATE MANAGER
  * ==========================================================================
@@ -38,10 +38,19 @@ const GameEngine = {
     _lastCombatState: false, // Dinamik müzik için savaş durumu takibi
     tutorialStep: -1,        // -1=kapalı, 0-4=aktif ipucu adımı
     tutorialTimer: 0,        // Her adımın gösterim süreci
+    trainingPurchases: 0,
+    exploredRooms: new Set(),
+    _lastExploredRoom: -1,
+    bagTab: 'all',
     
     // Portal animasyonu
     portalFrame: 1,
     portalTimer: 0,
+
+    // Warrior execution overlay
+    executionTimer: 0,
+    executionX: 0,
+    executionY: 0,
 
     // Ekran Sarsıntısı için yedekler
     bgCanvas: null,
@@ -58,12 +67,21 @@ const GameEngine = {
         // Anti-aliasing'i kapat (Piksel keskinliği için)
         this.ctx.imageSmoothingEnabled = false;
 
+        // DOM elementlerini bir kez cache'le (per-frame getElementById önlenir)
+        this._elBossBar  = document.getElementById('boss-hp-bar');
+        this._elBossName = document.getElementById('boss-name');
+        this._lastBossHpPct  = -1;
+        this._lastBossPhase  = -1;
+        this._hpAlertTimer   = 0; // critical_hp / low_hp diyalog throttle
+
         // 2. Kontrol Sistemini Başlat
         InputManager.init(this.canvas);
         
         // 3. Arka Plan Partikül Efektini Başlat (Dashboard dışındaki toz zerreleri)
         this.initBackgroundParticles();
         
+        this.setupBagUI();
+
         // 4. HTML Arayüz Butonlarını Dinle
         this.setupUIListeners();
         
@@ -78,20 +96,43 @@ const GameEngine = {
 
     // Arayüz buton dinleyicilerini kur
     setupUIListeners() {
+        const openBagBtn = document.getElementById('btn-open-bag');
+        if (openBagBtn) openBagBtn.addEventListener('click', () => this.openBag());
+        const closeBagBtn = document.getElementById('btn-close-bag');
+        if (closeBagBtn) closeBagBtn.addEventListener('click', () => this.closeBag());
+        document.querySelectorAll('.bag-tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this.bagTab = btn.dataset.bagTab || 'all';
+                document.querySelectorAll('.bag-tab-btn').forEach(b => b.classList.toggle('active', b === btn));
+                this.drawInventory();
+            });
+        });
+
         document.getElementById('btn-start').addEventListener('click', () => {
+            // Kullanıcı etkileşimi anında AudioContext'i başlat/devam ettir
+            SoundEngine.init();
+            if (SoundEngine.ctx && SoundEngine.ctx.state === 'suspended') {
+                SoundEngine.ctx.resume();
+            }
             this.startNewGame();
         });
         
         document.getElementById('btn-retry').addEventListener('click', () => {
+            SoundEngine.init();
+            if (SoundEngine.ctx && SoundEngine.ctx.state === 'suspended') SoundEngine.ctx.resume();
             this.startNewGame();
         });
 
-        document.getElementById('btn-restart').addEventListener('click', () => {
+        document.getElementById('btn-restart').addEventListener('click', (e) => {
+            e.stopPropagation();
+            SoundEngine.init();
+            if (SoundEngine.ctx && SoundEngine.ctx.state === 'suspended') SoundEngine.ctx.resume();
             this.startNewGame();
         });
 
         // CRT filtre toggle
-        document.getElementById('btn-crt').addEventListener('click', () => {
+        document.getElementById('btn-crt').addEventListener('click', (e) => {
+            e.stopPropagation();
             this.crtEnabled = !this.crtEnabled;
             const wrapper = document.querySelector('.canvas-wrapper');
             if (wrapper) wrapper.classList.toggle('crt-on', this.crtEnabled);
@@ -100,8 +141,10 @@ const GameEngine = {
             btn.style.borderColor = this.crtEnabled ? 'var(--neon-cyan)' : '';
         });
 
-        // Ses seviyesi sürgüsü
+        // Ses seviyesi sürgüsü — click/change event'ini de durdur (intro-skip tetiklemesin)
+        document.getElementById('slider-vol').addEventListener('click', (e) => e.stopPropagation());
         document.getElementById('slider-vol').addEventListener('input', (e) => {
+            e.stopPropagation();
             const vol = parseInt(e.target.value) / 100;
             SoundEngine.init();
             if (SoundEngine.masterGain) SoundEngine.masterGain.gain.setValueAtTime(vol * 0.3, SoundEngine.ctx.currentTime);
@@ -117,6 +160,11 @@ const GameEngine = {
 
         document.getElementById('btn-victory-retry').addEventListener('click', () => {
             this.closeVictory();
+            this.startNewGame();
+        });
+
+        document.getElementById('btn-ending-retry').addEventListener('click', () => {
+            this.closeEnding();
             this.startNewGame();
         });
 
@@ -137,6 +185,13 @@ const GameEngine = {
             if (this._hoveredInvIndex >= 0) {
                 this.salvageItem(this._hoveredInvIndex);
                 this.hideTooltip();
+                this.hideInventoryActionMenu();
+            }
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest || !e.target.closest('.inventory-action-menu')) {
+                this.hideInventoryActionMenu();
             }
         });
 
@@ -181,24 +236,94 @@ const GameEngine = {
             }
         });
 
-        // Karakter seçim ekranı göründükten sonra ilk etkileşimde menü müziğini başlat
-        const _startMenuMusic = () => {
-            if (!SoundEngine.menuMusicPlaying && !SoundEngine.isMuted) {
+        // Karakter seçim ekranı aktif olduğunda menü müziğini başlat
+        const _tryStartMenuMusic = () => {
+            if (SoundEngine.menuMusicPlaying || SoundEngine.isMuted) return;
+
+            // ctx, skipIntro() içinde zaten user gesture sırasında başlatıldıysa
+            // burada direkt playMenuMusic() çalışır. Çalışmadıysa (video doğal bitti,
+            // kullanıcı hiç tıklamadı) → sonraki tıklamada tekrar dene.
+            if (SoundEngine.ctx && SoundEngine.ctx.state === 'running') {
                 SoundEngine.playMenuMusic();
+            } else {
+                // ctx yok veya suspended: bir sonraki kullanıcı etkileşiminde başlat
+                const _onNextInteraction = () => {
+                    SoundEngine.init();
+                    if (SoundEngine.ctx && SoundEngine.ctx.state === 'suspended') {
+                        SoundEngine.ctx.resume().then(() => SoundEngine.playMenuMusic()).catch(() => {});
+                    } else {
+                        SoundEngine.playMenuMusic();
+                    }
+                    document.removeEventListener('click',      _onNextInteraction);
+                    document.removeEventListener('keydown',    _onNextInteraction);
+                    document.removeEventListener('touchstart', _onNextInteraction);
+                };
+                document.addEventListener('click',      _onNextInteraction, { once: true });
+                document.addEventListener('keydown',    _onNextInteraction, { once: true });
+                document.addEventListener('touchstart', _onNextInteraction, { once: true });
             }
         };
-        // Splash'tan start ekranına geçince tetiklenecek — MutationObserver ile dinle
+        // Splash'tan start ekranına geçince MutationObserver ile algıla
         const _startObserver = new MutationObserver(() => {
             const startScreen = document.getElementById('screen-start');
             if (startScreen && startScreen.classList.contains('active')) {
                 _startObserver.disconnect();
-                document.addEventListener('click',      _startMenuMusic, { once: true });
-                document.addEventListener('keydown',    _startMenuMusic, { once: true });
-                document.addEventListener('touchstart', _startMenuMusic, { once: true });
+                // Geçiş animasyonu bittikten sonra müziği başlat (~800ms)
+                setTimeout(_tryStartMenuMusic, 800);
             }
         });
         const _startScreen = document.getElementById('screen-start');
         if (_startScreen) _startObserver.observe(_startScreen, { attributes: true, attributeFilter: ['class'] });
+    },
+
+    setupBagUI() {
+        if (document.getElementById('screen-bag')) return;
+        const invSection = document.querySelector('.section-inventory');
+        const invContainer = document.getElementById('inventory-container');
+        if (!invSection || !invContainer) return;
+        const forgeBtn = document.getElementById('btn-forge');
+        const sortBtn = document.getElementById('btn-sort-inv');
+
+        invSection.innerHTML = `
+            <div class="inventory-header">
+                <div class="panel-title pixel-text"><i class="fa-solid fa-bag-shopping"></i> CANTA</div>
+                <span id="inv-count" class="pixel-text font-small">0/30</span>
+            </div>
+            <div class="bag-launch-panel">
+                <button id="btn-open-bag" class="bag-open-btn"><i class="fa-solid fa-bag-shopping"></i> CANTAYI AC</button>
+                <div class="bag-quick-actions"></div>
+            </div>
+        `;
+        const quickActions = invSection.querySelector('.bag-quick-actions');
+        if (forgeBtn) quickActions.appendChild(forgeBtn);
+        if (sortBtn) quickActions.appendChild(sortBtn);
+
+        const bagScreen = document.createElement('div');
+        bagScreen.id = 'screen-bag';
+        bagScreen.className = 'overlay-screen';
+        bagScreen.innerHTML = `
+            <div class="screen-content shop-content">
+                <div class="level-up-banner">
+                    <i class="fa-solid fa-bag-shopping gold-color" style="font-size:28px"></i>
+                    <h2 class="pixel-text" style="color:var(--neon-cyan)">CANTA</h2>
+                </div>
+                <div class="bag-tabs">
+                    <button class="bag-tab-btn active" data-bag-tab="all">TUMU</button>
+                    <button class="bag-tab-btn" data-bag-tab="equipment">EKIPMAN</button>
+                    <button class="bag-tab-btn" data-bag-tab="shards">TAS PARCALARI</button>
+                    <button class="bag-tab-btn" data-bag-tab="stones">TASLAR</button>
+                </div>
+                <div id="bag-grid-host"></div>
+                <div id="stone-craft-container" class="stone-craft-panel"></div>
+                <button id="btn-close-bag" class="action-btn pixel-text" style="font-size:10px;padding:12px 28px;">
+                    <i class="fa-solid fa-times"></i> KAPAT
+                </button>
+            </div>
+        `;
+        const overlayParent = document.getElementById('screen-forge')?.parentElement || document.body;
+        overlayParent.appendChild(bagScreen);
+        invContainer.className = 'bag-grid';
+        bagScreen.querySelector('#bag-grid-host').appendChild(invContainer);
     },
 
     // Yeni Bir Oyuna Sıfırdan Başla
@@ -220,13 +345,25 @@ const GameEngine = {
         this.particles = [];
         this.textParticles = [];
         this.projectiles = [];
+        this.groundMarks = [];
+        this.voidPulses  = [];
         this.merchant = null;
         this.boss = null;
         this.shopItems = null;
+        this.runRescues = 0;
+        this._karunSpawned = false;
+        this.executionTimer = 0;
+        this.executionX = 0;
+        this.executionY = 0;
+        this.trainingPurchases = 0;
+        this._lastSetBonusText = '';
+        this.exploredRooms = new Set();
+        this._lastExploredRoom = -1;
 
         // 1. Zindanı ve Oyuncuyu Üret
         World.generate(this.floor);
         this.player = new Player(World.spawnPoints.player.x, World.spawnPoints.player.y);
+        this.updateExploredRooms();
 
         // Sınıf bonusları uygula — güçlü ve belirgin farklılıklar + farklı başlangıç ekipmanı
         this.selectedClass = this.selectedClass || 'warrior';
@@ -245,15 +382,31 @@ const GameEngine = {
             this.player.equipment.weapon = { type: 'bow_common', name: 'Başlangıç Yayı', rarity: 'common', stats: { atk: 4 }, description: 'Nişancının yayı. (+4 Hasar)' };
             this.addLog("🏹 NİŞANCI: +12 Kritik, +0.6 Hız, +4 Atk, Yay kuşandın!", "level");
         } else if (this.selectedClass === 'mage') {
-            this.player.qMaxCooldown = Math.floor(this.player.qMaxCooldown * 0.55);
-            this.player.wMaxCooldown = Math.floor(this.player.wMaxCooldown * 0.55);
             this.player.stats.atk  += 9;
             this.player.stats.crit += 6;
             this.player.stats.maxHp+= 25;
             // Büyücü: Asa ile başlar (silah slotuna)
             this.player.equipment.weapon = { type: 'staff_common', name: 'Başlangıç Asası', rarity: 'common', stats: { atk: 4, hp: 10 }, description: 'Büyücünün asası. (+4 Hasar, +10 Can)' };
-            this.addLog("🔮 BÜYÜCÜ: Yetenek CD -45%, +9 Atk, +6 Kritik, +25 Can, Asa kuşandın!", "level");
+            this.addLog("🔮 BÜYÜCÜ: +9 Atk, +6 Kritik, +25 Can, Asa kuşandın! Cooldown pasifi level aldıkça açılır.", "level");
         }
+        // ── Sınıfa özgü hareket/dash kimliği ─────────────────────────────────
+        if (this.selectedClass === 'warrior') {
+            this.player.dashCooldown         = 52;
+            this.player.dashDuration         = 9;
+            this.player.dashSpeedMultiplier  = 2.8;
+            this.player.attackCooldown       = 28; // Yavaş ağır saldırı ritmi
+        } else if (this.selectedClass === 'ranger') {
+            this.player.dashCooldown         = 26;  // Yıldırım kaçış
+            this.player.dashDuration         = 5;
+            this.player.dashSpeedMultiplier  = 4.5;
+            this.player.attackCooldown       = 18;  // Hızlı ok ritmi
+        } else if (this.selectedClass === 'mage') {
+            this.player.dashCooldown         = 60;  // Ender ışınlanma
+            this.player.dashDuration         = 7;
+            this.player.dashSpeedMultiplier  = 2.6;
+            this.player.attackCooldown       = 32;  // Büyü döngüsü ritmi
+        }
+
         // Ekipman sprite'larını güncelle
         if (window.SpriteEngine) window.SpriteEngine.updatePlayerSprites(this.player.equipment);
         this.player.hp = this.player.getMaxHp();
@@ -291,7 +444,12 @@ const GameEngine = {
         
         // Mute butonuna göre müziği oynat
         if (SoundEngine && !SoundEngine.isMuted) {
-            SoundEngine.playMusic();
+            // ctx askıya alınmışsa devam ettir, ardından müziği başlat
+            if (SoundEngine.ctx && SoundEngine.ctx.state === 'suspended') {
+                SoundEngine.ctx.resume().then(() => SoundEngine.playMusic());
+            } else {
+                SoundEngine.playMusic();
+            }
         }
 
         this.addLog("Maceraya başlandı! Zindan Katı: 1", "system");
@@ -309,10 +467,13 @@ const GameEngine = {
         this.projectiles = [];
         this.traps = [];
         this.captives = [];
+        this.groundMarks = [];
+        this.voidPulses  = [];
         this._lastCombatState = false;
         this.merchant = null;
         this.boss = null;
         this.shopItems = null;
+        this._karunSpawned = false;
 
         // Işınlanma sesi sentezle
         SoundEngine.playPortal();
@@ -326,16 +487,14 @@ const GameEngine = {
         
         // Canavar ve sandıkları yeni kata yerleştir
         this.spawnMapEntities();
+        this.exploredRooms = new Set();
+        this._lastExploredRoom = -1;
+        this.updateExploredRooms();
 
         // Kamera sarsıntısıyla derinlik hissiyatı ver
         this.triggerScreenShake(15);
 
-        // Faiz sistemi: Her 100 altın için %5 faiz
-        if (this.player && this.player.gold >= 100) {
-            const interest = Math.floor(this.player.gold / 100) * 5;
-            this.player.gold += interest;
-            this.addLog(`💰 Yatırımlarından +${interest} altın faiz geliri kazandın!`, "loot");
-        }
+        // Faiz geliri kapali: altin artik otomatik cogalmaz, satici/egitim/forge icin harcanir.
 
         const zoneNames = ['','Karanlık Zindan','Gölge Mağarası','Goblin Yurdu','Alev Krallığı','Donmuş Tundra','Orman Tapınağı','Şeytan Kalesi','Gökyüzü Kalesi','Yokluk Alemi','Ejder Yuvası'];
         const zone = Math.ceil(this.floor / 10);
@@ -393,6 +552,17 @@ const GameEngine = {
             this.enemies.push(new Enemy(pt.x, pt.y, type));
         });
 
+        // Zaman Yankısı: Zone 9 (kat 81-90) normal katlarda, oyuncunun kopyası
+        const zone9 = Math.ceil(this.floor / 10) === 9;
+        if (zone9 && !World.spawnPoints.boss && World.spawnPoints.enemies.length > 0) {
+            const sp = World.spawnPoints.enemies[Math.floor(Math.random() * World.spawnPoints.enemies.length)];
+            const echo = new Enemy(sp.x + 48, sp.y - 48, 'time_echo');
+            this.enemies.push(echo);
+            setTimeout(() => {
+                if (window.DialogSystem) DialogSystem.triggerEvent('time_echo_spawn');
+            }, 1500);
+        }
+
         // Kutsal sütunlar: Boss katı hariç %40 ihtimalle 1 sütun
         if (!World.spawnPoints.boss && Math.random() < 0.40 && World.spawnPoints.enemies.length > 0) {
             const sp = World.spawnPoints.enemies[Math.floor(Math.random() * World.spawnPoints.enemies.length)];
@@ -449,12 +619,14 @@ const GameEngine = {
 
         // Zindan Muhafızı Boss oluştur (Varsa)
         if (World.spawnPoints.boss) {
-            this.boss = new Boss(World.spawnPoints.boss.x, World.spawnPoints.boss.y);
+            this.boss = new Boss(World.spawnPoints.boss.x, World.spawnPoints.boss.y, this.floor);
             this.enemies.push(this.boss);
             document.getElementById('boss-hud').classList.add('active');
             // Can barını baştan doldur
             document.getElementById('boss-hp-bar').style.width = '100%';
+            if (this._elBossName) this._elBossName.textContent = this.boss.name;
             SoundEngine.playBossRoar();
+            SoundEngine.startBossFight();
             // Boss pre-diyalogu tetikle
             if (window.DialogSystem) {
                 const bossZone = Math.ceil(this.floor / 10);
@@ -512,6 +684,7 @@ const GameEngine = {
                 const dist = Math.hypot(this.player.x - npc.x, this.player.y - npc.y);
                 if (dist < npc.interactRange) {
                     npc.rescue(this);
+                    this.runRescues = (this.runRescues || 0) + 1;
                     rescuedAny = true;
                 }
             }
@@ -707,6 +880,163 @@ const GameEngine = {
         document.getElementById('screen-victory').classList.remove('active');
     },
 
+    // ─── SON SEÇİM EKRANI ───
+    showEndingChoice() {
+        this.state = 'ending_choice';
+        const rescues = this.runRescues || 0;
+        const kills   = this.killsCount || 0;
+
+        const introEl = document.getElementById('ending-choice-intro');
+        if (introEl) introEl.textContent = 'Aetherion yenik düştü. Kârun\'un gücü serbest kaldı. Ne yapacaksın?';
+
+        const statsEl = document.getElementById('ending-run-stats');
+        if (statsEl) statsEl.innerHTML = `Kurtardığın: <b>${rescues}</b> &nbsp;|&nbsp; Yendiğin: <b>${kills}</b>`;
+
+        const btnContainer = document.getElementById('ending-choice-buttons');
+        if (btnContainer) {
+            const endings = [
+                {
+                    type: 'light',
+                    icon: '✨',
+                    title: 'IŞIĞIN YOLU',
+                    desc: 'Çekirdeği yok et. Ruhları özgür bırak. Kendini feda et.',
+                    color: '#ffd700',
+                    locked: rescues < 3,
+                    lockMsg: rescues < 3 ? `(${3 - rescues} kurtarma daha gerekli)` : '',
+                },
+                {
+                    type: 'iron',
+                    icon: '⚔️',
+                    title: 'DEMİR YOLU',
+                    desc: 'Gücü al. Zindan\'ın yeni hükümdarı ol.',
+                    color: 'var(--neon-cyan)',
+                    locked: false,
+                    lockMsg: '',
+                },
+                {
+                    type: 'dark',
+                    icon: '💀',
+                    title: 'KARANLIĞIN YOLU',
+                    desc: 'Kârun\'un tahtına otur. Uçurumun efendisi ol.',
+                    color: '#cc3333',
+                    locked: kills < 150,
+                    lockMsg: kills < 150 ? `(${150 - kills} öldürme daha gerekli)` : '',
+                },
+            ];
+            btnContainer.innerHTML = '';
+            endings.forEach(e => {
+                const btn = document.createElement('button');
+                btn.className = 'action-btn pixel-text';
+                btn.style.cssText = `width:100%;text-align:left;padding:10px 14px;font-size:9px;line-height:1.7;background:rgba(0,0,0,0.6);border-color:${e.locked ? '#444' : e.color};color:${e.locked ? '#555' : e.color};margin-bottom:2px;opacity:${e.locked ? '0.45' : '1'}`;
+                btn.innerHTML = `${e.icon} ${e.title}<br><span style="color:${e.locked ? '#444' : '#aaa'};font-size:8px">${e.desc}</span>${e.locked ? `<br><span style="color:#555;font-size:7px">${e.lockMsg}</span>` : ''}`;
+                if (!e.locked) btn.onclick = () => this.resolveEnding(e.type);
+                btnContainer.appendChild(btn);
+            });
+        }
+
+        document.getElementById('screen-ending-choice').classList.add('active');
+        SoundEngine.stopMusic();
+    },
+
+    resolveEnding(type) {
+        document.getElementById('screen-ending-choice').classList.remove('active');
+
+        const classNames = { warrior: '⚔️ Savaşçı', ranger: '🏹 Nişancı', mage: '🔮 Büyücü' };
+        const cls = classNames[this.selectedClass] || '⚔️ Savaşçı';
+
+        let icon, title, titleColor, subtitle, soulBonus, extraLine;
+
+        if (type === 'light') {
+            icon       = '✨';
+            title      = 'IŞIĞIN ŞAMPIYONU';
+            titleColor = 'var(--neon-gold)';
+            subtitle   = 'Sera\'nın ruhu huzur buldu. Zindan\'ın zinciri kırıldı.';
+            soulBonus  = 350 + Math.floor(this.killsCount * 0.5) + (this.runRescues || 0) * 20;
+            extraLine  = `<div class="stat-line"><span>Kurtarılan:</span> <span class="pixel-text" style="color:var(--neon-gold)">${this.runRescues || 0} ruh</span></div>`;
+        } else if (type === 'iron') {
+            icon       = '🏆';
+            title      = 'ZİNDAN FATİHİ';
+            titleColor = 'var(--neon-cyan)';
+            subtitle   = 'Gücü aldın. Zindan\'ın yeni hükümdarı oldun.';
+            soulBonus  = 200 + Math.floor(this.killsCount * 0.5);
+            extraLine  = `<div class="stat-line"><span>Hükümdarlık:</span> <span class="pixel-text" style="color:var(--neon-cyan)">SONSUZ</span></div>`;
+        } else {
+            icon       = '💀';
+            title      = 'KARANLIĞIN EFENDİSİ';
+            titleColor = '#cc3333';
+            subtitle   = 'Kârun\'un tahtı senin oldu. Ama zindan seni de tüketecek...';
+            soulBonus  = 100 + Math.floor(this.killsCount * 0.8);
+            extraLine  = `<div class="stat-line"><span>Yenilen Ruh:</span> <span class="pixel-text" style="color:#cc3333">${this.killsCount}</span></div>`;
+        }
+
+        this._addSoulStones(soulBonus);
+        this.addLog(`💎 ZAFERDEKİ ÖDÜL: +${soulBonus} Ruh Taşı!`, 'loot');
+        this.state = 'victory';
+
+        const set = (id, val) => { const el = document.getElementById(id); if (el) el.innerHTML = val; };
+        set('ending-icon',     icon);
+        const titleEl = document.getElementById('ending-title');
+        if (titleEl) { titleEl.textContent = title; titleEl.style.color = titleColor; }
+        set('ending-subtitle', subtitle);
+        set('ending-final-stats', `
+            <div class="stat-line"><span>Sınıf:</span> <span class="pixel-text">${cls}</span></div>
+            <div class="stat-line"><span>Geçilen Kat:</span> <span class="pixel-text">${this.floor}</span></div>
+            <div class="stat-line"><span>Yenilen Düşman:</span> <span class="pixel-text red-color">${this.killsCount}</span></div>
+            <div class="stat-line"><span>Ruh Taşı Ödülü:</span> <span class="pixel-text" style="color:var(--neon-gold)">+${soulBonus}</span></div>
+            ${extraLine}
+        `);
+
+        document.getElementById('screen-ending').classList.add('active');
+        SoundEngine.playLevelUp();
+
+        setTimeout(() => {
+            if (window.DialogSystem) {
+                const key = { light: 'ending_light', iron: 'ending_iron', dark: 'ending_dark' }[type];
+                DialogSystem.triggerEvent(key);
+            }
+        }, 1800);
+    },
+
+    _spawnKarunFinal(x, y) {
+        const spawnX = x || (this.player ? this.player.x + 120 : 400);
+        const spawnY = y || (this.player ? this.player.y        : 300);
+
+        const karun = new Boss(spawnX, spawnY, 100);
+        karun.name     = 'KÂRUN — SONSUZLUĞUN EFENDİSİ';
+        karun.zone     = 10;
+        karun.maxHp    = Math.floor(karun.maxHp * 1.4);
+        karun.hp       = karun.maxHp;
+        karun.atk      = Math.floor(karun.atk * 1.5);
+        karun.speed    = 0.85;
+        karun._isKarun = true;
+        karun.facing   = 'right';
+        // Kârun daha geniş — altın rengi
+        karun.width    = 92;
+        karun.height   = 140;
+        karun.radius   = 30;
+
+        this.boss = karun;
+        this.enemies.push(karun);
+
+        document.getElementById('boss-hud').classList.add('active');
+        document.getElementById('boss-hp-bar').style.width = '100%';
+        if (this._elBossName) this._elBossName.textContent = karun.name;
+        SoundEngine.playBossRoar();
+        SoundEngine.startBossFight();
+
+        this.addLog('⚡ KÂRUN SAHNEDE! Son savaş başlıyor!', 'warning');
+        this.triggerScreenShake(20);
+
+        if (window.DialogSystem) {
+            setTimeout(() => DialogSystem.triggerEvent('karun_final_appears'), 500);
+        }
+    },
+
+    closeEnding() {
+        this.state = 'start';
+        document.getElementById('screen-ending').classList.remove('active');
+    },
+
     // ─── HİKAYE DİYALOĞU ───
     showStoryDialog(floor) {
         const stories = {
@@ -871,6 +1201,7 @@ const GameEngine = {
                     if (stones2 >= u.cost && cur2 < u.max) {
                         localStorage.setItem('pk_soul_stones', stones2 - u.cost);
                         localStorage.setItem(`pk_meta_${u.key}`, cur2 + 1);
+                        SoundEngine.playSoulstone();
                         this._drawMetaUpgrades();
                     }
                 });
@@ -1121,7 +1452,7 @@ const GameEngine = {
         document.getElementById('stat-atk').innerText = this.player.getTotalAtk();
         document.getElementById('stat-def').innerText = this.player.getTotalDef();
         document.getElementById('stat-spd').innerText = this.player.getTotalSpd().toFixed(1);
-        document.getElementById('stat-crit').innerText = `${this.player.stats.crit}%`;
+        document.getElementById('stat-crit').innerText = `${this.player.getTotalCrit()}%`;
         const luckEl = document.getElementById('stat-luck');
         if (luckEl) luckEl.innerText = `${this.player.stats.luck}%`;
 
@@ -1141,6 +1472,16 @@ const GameEngine = {
         // 5. Yetenek Cooldown Göstergesi (Q ve R butonları üzerinde)
         const cooldownQ = document.getElementById('cooldown-q');
         const cooldownR = document.getElementById('cooldown-r');
+        const skillNames = {
+            warrior: ['KIRICI SAVURMA', 'GÖK KILICI'],
+            ranger: ['DELİCİ OK', 'OK YAĞMURU'],
+            mage: ['ATEŞ TOPU', 'METEOR']
+        };
+        const names = skillNames[this.selectedClass] || skillNames.warrior;
+        const qName = document.querySelector('#btn-skill-q .skill-info span');
+        const rName = document.querySelector('#btn-skill-w .skill-info span');
+        if (qName) qName.textContent = names[0];
+        if (rName) rName.textContent = names[1];
         if (cooldownQ) {
             const qRatio = this.player.qCooldown / this.player.qMaxCooldown;
             if (this.player.qCooldown > 0) {
@@ -1177,33 +1518,15 @@ const GameEngine = {
 
     _checkSetBonus() {
         if (!this.player) return;
-        const eq = this.player.equipment;
-
-        // Tüm kuşanılmış ekipmanların nadirliklerini say
-        const rarities = Object.values(eq).filter(Boolean).map(i => i.rarity);
-        const legendaryCount = rarities.filter(r => r === 'legendary').length;
-        const rareCount = rarities.filter(r => r === 'rare').length;
-
-        // Set bonus: daha önce uygulananları tekrar uygulama
-        if (!this.player._setBonusApplied) this.player._setBonusApplied = {};
-
-        // Full Legendary Set (6+ efsanevi) → Titan Seti
-        if (legendaryCount >= 6 && !this.player._setBonusApplied['titan']) {
-            this.player._setBonusApplied['titan'] = true;
-            this.player.stats.atk += 10;
-            this.player.stats.def += 6;
-            this.player.stats.crit += 8;
-            this.addLog("TİTAN SETİ TAMAMLANDI! +10 Hasar, +6 Def, +8% Kritik! EFSANE BONUS!", "level");
-            if (window.SoundEngine) SoundEngine.playLevelUp();
-        }
-
-        // Full Rare Set (6+ nadir) → Şövalye Seti
-        if (rareCount >= 6 && !this.player._setBonusApplied['knight']) {
-            this.player._setBonusApplied['knight'] = true;
-            this.player.stats.atk += 5;
-            this.player.stats.def += 4;
-            this.player.stats.maxHp += 30;
-            this.addLog("ŞÖVALYE SETİ TAMAMLANDI! +5 Hasar, +4 Def, +30 Can! Set Bonusu Aktif!", "level");
+        const setText = this.player.getItemSetBonuses
+            ? this.player.getItemSetBonuses().names.join(' | ')
+            : '';
+        if (setText !== this._lastSetBonusText) {
+            this._lastSetBonusText = setText;
+            if (setText) {
+                this.addLog(`SET BONUSU AKTIF: ${setText}`, "level");
+                if (window.SoundEngine) SoundEngine.playLevelUp();
+            }
         }
     },
 
@@ -1231,7 +1554,7 @@ const GameEngine = {
     // Tüm item türleri için doğru sprite anahtarını döner
     _getItemSpriteKey(item) {
         const type = item.type;
-        const rar  = item.rarity;  // enchant sonrası değişmiş olabilir
+        const rar  = item.rarity === 'mythic' ? 'legendary' : item.rarity;  // Kizil esya simdilik legendary ikon kullanir
         if (type.startsWith('sword_'))    return `item_sword_${rar}`;
         if (type.startsWith('bow_'))      return `item_bow_${rar}`;
         if (type.startsWith('armor_'))    return `item_armor_${rar}`;
@@ -1242,15 +1565,28 @@ const GameEngine = {
         if (type.startsWith('gloves_'))   return `item_gloves_${rar}`;
         if (type.startsWith('boots_'))    return `item_boots_${rar}`;
         // Yeni tipler → mevcut sprite'lara eşle
-        if (type.startsWith('dagger_'))   return `item_sword_${rar}`;
-        if (type.startsWith('staff_'))    return `item_sword_${rar}`;
-        if (type.startsWith('shield_'))   return `item_armor_${rar}`;
+        if (type.startsWith('dagger_'))   return `item_dagger_${rar}`;
+        if (type.startsWith('staff_'))    return `item_staff_${rar}`;
+        if (type.startsWith('shield_'))   return `item_shield_${rar}`;
         if (type === 'potion_big')        return 'item_potion_red';
         if (type === 'gold_key')          return 'item_gold';
+        if (type.startsWith('stone_shard_')) return 'item_gold';
+        if (type.startsWith('stone_')) return 'item_ring_legendary';
         return `item_${type}`; // gold, potion_red, potion_blue
     },
 
     // Silah / Zırh Kuşanma pencerelerini doldurur
+    _getItemEffectText(item) {
+        if (!item || !item.effect) return '';
+        const e = item.effect;
+        if (e.type === 'frost') return `OZEL: %${Math.round((e.chance || 0) * 100)} yavaslatma`;
+        if (e.type === 'burn') return `OZEL: %${Math.round((e.chance || 0) * 100)} yakma`;
+        if (e.type === 'focus') return `OZEL: %${Math.round((e.chance || 0) * 100)} cooldown azaltma`;
+        if (e.type === 'burn_focus') return `OZEL: %${Math.round((e.chance || 0) * 100)} yakma + cooldown azaltma`;
+        if (e.type === 'lifesteal') return `OZEL: %${Math.round((e.chance || 0) * 100)} can calma`;
+        return '';
+    },
+
     drawEquipmentSlot(slotType, item) {
         const slotEl = document.getElementById(`slot-${slotType}`);
         const itemContainer = slotEl.querySelector('.slot-item-container');
@@ -1304,17 +1640,24 @@ const GameEngine = {
     // Envanterdeki 16 slotu dinamik çizer
     drawInventory() {
         const container = document.getElementById('inventory-container');
+        if (!container || !this.player) return;
         container.innerHTML = ''; // Temizle
 
         const invCount = this.player.inventory.length; // Her yığın 1 slot sayılır
         document.getElementById('inv-count').innerText = `${invCount}/${this.player.maxInventorySlots}`;
 
-        // 16 yuva oluştur
+        const visibleItems = this.player.inventory
+            .map((item, index) => ({ item, index }))
+            .filter(({ item }) => this._bagFilterItem(item));
+
+        // 30 yuva oluştur
         for (let i = 0; i < this.player.maxInventorySlots; i++) {
             const slot = document.createElement('div');
             slot.className = 'inv-slot';
 
-            const item = this.player.inventory[i];
+            const entry = visibleItems[i];
+            const item = entry && entry.item;
+            const itemIndex = entry && entry.index;
             if (item) {
                 slot.classList.add(`rarity-glow-${item.rarity}`);
 
@@ -1341,31 +1684,85 @@ const GameEngine = {
                 }
 
                 // Eşya açıklaması hover tooltip (isInventory = true)
-                canvas.addEventListener('mouseenter', () => { this._hoveredInvIndex = i; this.showTooltip(item, true); });
+                canvas.addEventListener('mouseenter', () => { this._hoveredInvIndex = itemIndex; this.showTooltip(item, true); });
                 canvas.addEventListener('mouseleave', () => { this._hoveredInvIndex = -1; this.hideTooltip(); });
 
+                const openActionMenu = (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.showInventoryActionMenu(itemIndex, e.clientX, e.clientY);
+                    this.hideTooltip();
+                };
+
                 // Sol tık: kullan / kuşan
-                canvas.addEventListener('click', () => {
-                    this.player.useItem(i, this);
+                slot.addEventListener('click', () => {
+                    this.player.useItem(itemIndex, this);
                     this.hideTooltip();
                 });
 
-                // Sağ tık: sat
-                canvas.addEventListener('contextmenu', (e) => {
-                    e.preventDefault();
-                    this.sellInventoryItem(i);
-                    this.hideTooltip();
-                });
+                // Sağ tık: Sat / Parçala menüsü
+                slot.addEventListener('contextmenu', openActionMenu);
+                canvas.addEventListener('contextmenu', openActionMenu);
             }
 
             container.appendChild(slot);
         }
+
+        this.drawStoneCraftPanel();
+    },
+
+    _bagFilterItem(item) {
+        if (!item) return false;
+        if (this.bagTab === 'equipment') return !!item.stats && !item.type.startsWith('stone_');
+        if (this.bagTab === 'shards') return item.type.startsWith('stone_shard_');
+        if (this.bagTab === 'stones') return item.type.startsWith('stone_') && !item.type.startsWith('stone_shard_');
+        return true;
+    },
+
+    drawStoneCraftPanel() {
+        const container = document.getElementById('stone-craft-container');
+        if (!container || !this.player) return;
+        container.innerHTML = '';
+        const defs = [
+            { key: 'ruby', name: 'YAKUT', stat: '+3 HASAR' },
+            { key: 'sapphire', name: 'SAFIR', stat: '+4% KRITIK' },
+            { key: 'emerald', name: 'ZUMRUT', stat: '+18 CAN' },
+            { key: 'obsidian', name: 'OBSIDYEN', stat: '+2 DEFANS' }
+        ];
+        defs.forEach(def => {
+            const stack = this.player.inventory.find(i => i.type === `stone_shard_${def.key}`);
+            const count = stack ? (stack.count || 1) : 0;
+            const btn = document.createElement('button');
+            btn.className = 'stone-craft-btn';
+            btn.disabled = count < 10;
+            btn.innerHTML = `${def.name} TASI<br><span style="color:#888">${count}/10 parca</span><br><span style="color:var(--neon-cyan)">${def.stat}</span>`;
+            btn.addEventListener('click', () => this.combineStoneShard(def.key));
+            container.appendChild(btn);
+        });
+    },
+
+    combineStoneShard(key) {
+        const idx = this.player.inventory.findIndex(i => i.type === `stone_shard_${key}`);
+        const stack = this.player.inventory[idx];
+        if (!stack || (stack.count || 1) < 10) return;
+        stack.count -= 10;
+        if (stack.count <= 0) this.player.inventory.splice(idx, 1);
+
+        const stoneType = `stone_${key}`;
+        const existing = this.player.inventory.find(i => i.type === stoneType);
+        if (existing) existing.count = (existing.count || 1) + 1;
+        else this.player.inventory.push(new Item(0, 0, stoneType));
+
+        if (SoundEngine.playForge) SoundEngine.playForge(); else SoundEngine.playChestOpen();
+        this.addLog(`10 tas parcasi birlestirildi: ${stoneType.replace('stone_', '').toUpperCase()} tasi olustu.`, "loot");
+        this.drawInventory();
+        this.updateUI();
     },
 
     // Envanteri nadirliğe göre sırala (efsanevi > nadir > yaygın, iksirler sonda)
     sortInventory() {
         if (!this.player) return;
-        const order = { legendary: 0, rare: 1, common: 2 };
+        const order = { mythic: 0, legendary: 1, epic: 2, rare: 3, common: 4 };
         const isConsumable = (item) => !item.stats || item.type === 'gold' || item.type.startsWith('potion');
         this.player.inventory.sort((a, b) => {
             const aC = isConsumable(a), bC = isConsumable(b);
@@ -1391,7 +1788,8 @@ const GameEngine = {
         nameEl.className = `pixel-text rarity-color-${item.rarity}`;
 
         // Nadirlik etiket sınıfı
-        rarityEl.innerText = item.rarity === 'common' ? 'YAYGIN' : (item.rarity === 'rare' ? 'NADİR' : 'EFSANEVİ');
+        const rarityNames = { common: 'YAYGIN', rare: 'NADIR', epic: 'EPIC', legendary: 'EFSANEVI', mythic: 'KIZIL' };
+        rarityEl.innerText = rarityNames[item.rarity] || item.rarity.toUpperCase();
         rarityEl.className = `item-rarity-badge rarity-badge-${item.rarity}`;
 
         // Nitelik bonusları + kuşanılı eşya ile karşılaştırma
@@ -1423,17 +1821,21 @@ const GameEngine = {
             if (item.stats.hp) statsEl.innerHTML += `<div style="color:var(--neon-green)">+${item.stats.hp} MAKS CAN${diff('hp')}</div>`;
             if (item.stats.spd) statsEl.innerHTML += `<div style="color:var(--neon-purple)">+${Math.floor(item.stats.spd * 100)}% HIZ${diff('spd')}</div>`;
             if (item.stats.crit) statsEl.innerHTML += `<div style="color:var(--neon-gold)">+${item.stats.crit}% KRİTİK${diff('crit')}</div>`;
+            const effectText = this._getItemEffectText(item);
+            if (effectText) statsEl.innerHTML += `<div style="color:var(--neon-purple)">${effectText}</div>`;
+            if (item.socketLimit) statsEl.innerHTML += `<div style="color:var(--neon-red)">TAŞ: ${(item.sockets || []).length}/${item.socketLimit}</div>`;
             if (equippedItem) statsEl.innerHTML += `<div style="color:#888;font-size:8px">▲ Kuşanılı: ${equippedItem.name}</div>`;
         }
 
         descEl.innerText = item.description || '';
 
         // CSS rengini nadirliğe göre eşitle
-        const rarityColors = { common: 'var(--rarity-common)', rare: 'var(--rarity-rare)', legendary: 'var(--rarity-legendary)' };
+        const rarityColors = { common: 'var(--rarity-common)', rare: 'var(--rarity-rare)', epic: 'var(--rarity-epic)', legendary: 'var(--rarity-legendary)', mythic: 'var(--rarity-mythic)' };
         nameEl.style.color = rarityColors[item.rarity];
 
         // Envanter tooltip'i: satış fiyatı, parçalama butonu ve sağ tık ipucu
         const salvageBtn = document.getElementById('btn-tooltip-salvage');
+        const salvageDescEl = document.getElementById('tooltip-salvage-desc');
         if (isInventory && item.type !== 'gold') {
             const price = this.getSellPrice(item);
             sellEl.innerHTML = `<i class="fa-solid fa-coins"></i> SAT: <span>${price} Altın</span>`;
@@ -1444,14 +1846,20 @@ const GameEngine = {
                     const salvageDesc = { common: '+1 Nitelik', rare: '+2 Nitelik', legendary: '+3 Nitelik' };
                     salvageBtn.textContent = `⚡ PARÇALA (${salvageDesc[item.rarity] || '...'})`;
                     salvageBtn.style.display = 'block';
+                    if (salvageDescEl) {
+                        salvageDescEl.textContent = 'Esyayi yok eder, kalici rastgele nitelik verir.';
+                        salvageDescEl.style.display = 'block';
+                    }
                 } else {
                     salvageBtn.style.display = 'none';
+                    if (salvageDescEl) salvageDescEl.style.display = 'none';
                 }
             }
-            hintEl.innerHTML = 'Sol tık: Kuşan/Kullan &nbsp;|&nbsp; <span style="color:var(--neon-red)">Sağ tık: Sat</span>';
+            hintEl.innerHTML = 'Sol tik: Kusan/Kullan &nbsp;|&nbsp; <span style="color:var(--neon-red)">Sag tik: Sat / Parcala</span>';
         } else {
             sellEl.style.display = 'none';
             if (salvageBtn) salvageBtn.style.display = 'none';
+            if (salvageDescEl) salvageDescEl.style.display = 'none';
             hintEl.textContent = 'Kuşanmak veya kullanmak için tıkla';
         }
 
@@ -1468,9 +1876,58 @@ const GameEngine = {
     },
 
     // Eşya satış fiyatını döndür (Pazarlıkçı: +%20)
+    hideInventoryActionMenu() {
+        if (this._inventoryActionMenu) {
+            this._inventoryActionMenu.remove();
+            this._inventoryActionMenu = null;
+        }
+    },
+
+    showInventoryActionMenu(index, clientX, clientY) {
+        const item = this.player && this.player.inventory[index];
+        if (!item || item.type === 'gold') return;
+
+        this.hideInventoryActionMenu();
+
+        const canSalvage = !!(item.stats && !item.type.startsWith('potion'));
+        const menu = document.createElement('div');
+        menu.className = 'inventory-action-menu';
+        menu.innerHTML = `
+            <button class="inventory-action-btn sell" type="button">
+                <span>SAT</span><small>${this.getSellPrice(item)} Altin</small>
+            </button>
+            <button class="inventory-action-btn salvage" type="button" ${canSalvage ? '' : 'disabled'}>
+                <span>PARCALA</span><small>${canSalvage ? 'Kalici rastgele nitelik' : 'Bu esya parcalanamaz'}</small>
+            </button>
+        `;
+
+        menu.querySelector('.sell').addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.sellInventoryItem(index);
+            this.hideInventoryActionMenu();
+        });
+        menu.querySelector('.salvage').addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (!canSalvage) return;
+            this.salvageItem(index);
+            this.hideInventoryActionMenu();
+        });
+
+        document.body.appendChild(menu);
+        const mw = menu.offsetWidth || 190;
+        const mh = menu.offsetHeight || 86;
+        const left = Math.min(clientX, window.innerWidth - mw - 8);
+        const top = Math.min(clientY, window.innerHeight - mh - 8);
+        menu.style.left = `${Math.max(8, left)}px`;
+        menu.style.top = `${Math.max(8, top)}px`;
+        this._inventoryActionMenu = menu;
+    },
+
     getSellPrice(item) {
-        if (item.type === 'potion_red' || item.type === 'potion_blue') return 5;
-        const prices = { common: 4, rare: 10, legendary: 30 };
+        if (item.type === 'potion_red' || item.type === 'potion_blue') return 4;
+        if (item.type && item.type.startsWith('stone_shard_')) return 2;
+        if (item.type && item.type.startsWith('stone_')) return 35;
+        const prices = { common: 3, rare: 8, epic: 14, legendary: 22, mythic: 60 };
         const base = prices[item.rarity] || 5;
         return this.player && this.player.hasBarter ? Math.floor(base * 1.2) : base;
     },
@@ -1485,14 +1942,15 @@ const GameEngine = {
         const pools = {
             common:    [{ stat: 'atk', val: 1 }, { stat: 'def', val: 1 }],
             rare:      [{ stat: 'atk', val: 2 }, { stat: 'def', val: 2 }, { stat: 'hp', val: 6 }],
-            legendary: [{ stat: 'atk', val: 3 }, { stat: 'def', val: 3 }, { stat: 'hp', val: 12 }, { stat: 'crit', val: 2 }]
+            legendary: [{ stat: 'atk', val: 3 }, { stat: 'def', val: 3 }, { stat: 'hp', val: 12 }, { stat: 'crit', val: 2 }],
+            mythic:    [{ stat: 'atk', val: 5 }, { stat: 'def', val: 5 }, { stat: 'hp', val: 20 }, { stat: 'crit', val: 3 }]
         };
         const pool = pools[item.rarity] || pools.common;
         const bonus = pool[Math.floor(Math.random() * pool.length)];
         this.player.stats[bonus.stat] = (this.player.stats[bonus.stat] || 0) + bonus.val;
 
         const statNames = { atk: 'SALDIRI', def: 'DEFANS', hp: 'MAKS CAN', crit: 'KRİTİK' };
-        SoundEngine.playLevelUp();
+        SoundEngine.playSalvage();
         this.addLog(`⚡ [${item.name}] parçalandı → Kalıcı +${bonus.val} ${statNames[bonus.stat]}!`, "loot");
         this.textParticles.push(new TextParticle(
             this.player.x, this.player.y - 40,
@@ -1530,6 +1988,10 @@ const GameEngine = {
     // Ekran Sarsıntısı Tetikleyici (Engine'e köprü)
     triggerScreenShake(intensity) {
         ScreenEffects.trigger(intensity);
+        // Güçlü sarsıntıda (idam, patlama, boss) kısa zoom atışı
+        if (intensity >= 8 && World._critFlashTimer !== undefined) {
+            World._critFlashTimer = 8;
+        }
     },
 
     // Savaş günlüğüne mesaj ekleme fonksiyonu
@@ -1615,6 +2077,163 @@ const GameEngine = {
         });
     },
 
+    _getRoomIndexAt(worldX, worldY) {
+        if (!World.rooms || World.rooms.length === 0) return -1;
+        const tx = Math.floor(worldX / World.tileSize);
+        const ty = Math.floor(worldY / World.tileSize);
+        for (let i = 0; i < World.rooms.length; i++) {
+            const r = World.rooms[i];
+            if (tx >= r.x && tx < r.x + r.w && ty >= r.y && ty < r.y + r.h) return i;
+        }
+        return -1;
+    },
+
+    updateExploredRooms() {
+        if (!this.player || !World.rooms || World.rooms.length === 0) return;
+        const roomIndex = this._getRoomIndexAt(this.player.x, this.player.y);
+        if (roomIndex < 0 || roomIndex === this._lastExploredRoom) return;
+        this._lastExploredRoom = roomIndex;
+        if (!this.exploredRooms) this.exploredRooms = new Set();
+        this.exploredRooms.add(roomIndex);
+    },
+
+    _isWorldPointExplored(worldX, worldY) {
+        const roomIndex = this._getRoomIndexAt(worldX, worldY);
+        return roomIndex >= 0 && this.exploredRooms && this.exploredRooms.has(roomIndex);
+    },
+
+    drawMinimap() {
+        if (!this.player || !World.rooms || World.rooms.length === 0) return;
+        if (!this.exploredRooms) this.exploredRooms = new Set();
+
+        const questOffset = this.currentQuest ? 44 : 0;
+        const pad = 7;
+        const panelW = 154;
+        const panelH = 112;
+        const x = 8;
+        const y = 8 + questOffset;
+        const mapX = x + pad;
+        const mapY = y + 16;
+        const mapW = panelW - pad * 2;
+        const mapH = panelH - 23;
+        const scale = Math.min(mapW / World.width, mapH / World.height);
+        const offX = mapX + (mapW - World.width * scale) / 2;
+        const offY = mapY + (mapH - World.height * scale) / 2;
+        const toMini = (wx, wy) => ({
+            x: offX + (wx / World.tileSize) * scale,
+            y: offY + (wy / World.tileSize) * scale
+        });
+
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.globalAlpha = 0.94;
+        ctx.fillStyle = 'rgba(3, 4, 12, 0.88)';
+        ctx.strokeStyle = 'rgba(0, 240, 255, 0.48)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.roundRect(x, y, panelW, panelH, 6);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.globalAlpha = 1;
+        ctx.font = "6px 'Press Start 2P'";
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#00f0ff';
+        ctx.fillText('MINIMAP', x + 8, y + 10);
+        ctx.fillStyle = 'rgba(255,255,255,0.42)';
+        ctx.textAlign = 'right';
+        ctx.fillText(`${this.exploredRooms.size}/${World.rooms.length}`, x + panelW - 8, y + 10);
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(mapX, mapY, mapW, mapH);
+        ctx.clip();
+
+        ctx.fillStyle = '#05050d';
+        ctx.fillRect(mapX, mapY, mapW, mapH);
+
+        // Dense fog: hidden rooms are not drawn, so the layout is not leaked.
+        ctx.fillStyle = 'rgba(38, 34, 58, 0.34)';
+        for (let fy = mapY - 6; fy < mapY + mapH + 8; fy += 7) {
+            for (let fx = mapX - 6; fx < mapX + mapW + 8; fx += 7) {
+                if (((fx + fy + Math.floor(Date.now() / 240)) % 3) === 0) {
+                    ctx.fillRect(fx, fy, 2, 2);
+                }
+            }
+        }
+
+        ctx.strokeStyle = 'rgba(90, 80, 135, 0.55)';
+        ctx.lineWidth = Math.max(1, scale * 0.45);
+        for (let i = 0; i < World.rooms.length - 1; i++) {
+            if (!this.exploredRooms.has(i) || !this.exploredRooms.has(i + 1)) continue;
+            const a = World.rooms[i];
+            const b = World.rooms[i + 1];
+            const ax = offX + (a.centerX + 0.5) * scale;
+            const ay = offY + (a.centerY + 0.5) * scale;
+            const bx = offX + (b.centerX + 0.5) * scale;
+            const by = offY + (b.centerY + 0.5) * scale;
+            ctx.beginPath();
+            ctx.moveTo(ax, ay);
+            ctx.lineTo(bx, ay);
+            ctx.lineTo(bx, by);
+            ctx.stroke();
+        }
+
+        World.rooms.forEach((r, i) => {
+            if (!this.exploredRooms.has(i)) return;
+            const rx = offX + r.x * scale;
+            const ry = offY + r.y * scale;
+            const rw = Math.max(3, r.w * scale);
+            const rh = Math.max(3, r.h * scale);
+            ctx.fillStyle = i === this._lastExploredRoom ? 'rgba(70, 110, 145, 0.92)' : 'rgba(38, 48, 76, 0.9)';
+            ctx.strokeStyle = 'rgba(135, 215, 255, 0.46)';
+            ctx.lineWidth = 1;
+            ctx.fillRect(rx, ry, rw, rh);
+            ctx.strokeRect(rx + 0.5, ry + 0.5, Math.max(1, rw - 1), Math.max(1, rh - 1));
+        });
+
+        if (this._isWorldPointExplored(World.portal.x, World.portal.y)) {
+            const p = toMini(World.portal.x, World.portal.y);
+            ctx.fillStyle = World.portal.active ? '#39ff14' : '#b026ff';
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, World.portal.active ? 4 : 3.5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+        }
+
+        if (this.merchant && this._isWorldPointExplored(this.merchant.x, this.merchant.y)) {
+            const m = toMini(this.merchant.x, this.merchant.y);
+            ctx.fillStyle = this.merchant.isSpecial ? '#ff3b30' : '#ffd700';
+            ctx.strokeStyle = '#05050d';
+            ctx.lineWidth = 1;
+            ctx.fillRect(m.x - 3, m.y - 3, 6, 6);
+            ctx.strokeRect(m.x - 3.5, m.y - 3.5, 7, 7);
+        }
+
+        const pl = toMini(this.player.x, this.player.y);
+        ctx.fillStyle = '#00f0ff';
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(pl.x, pl.y, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.restore();
+
+        ctx.font = "5px 'Press Start 2P'";
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#39ff14';
+        ctx.fillText('P', x + 8, y + panelH - 7);
+        ctx.fillStyle = '#ffd700';
+        ctx.fillText('S', x + 28, y + panelH - 7);
+        ctx.fillStyle = World.portal.active ? '#39ff14' : '#b026ff';
+        ctx.fillText('O', x + 48, y + panelH - 7);
+        ctx.restore();
+    },
+
     // --- GAME LOOP: FİZİK VE MANTIK GÜNCELLEMELERİ ---
     update(dt) {
         // Arka plan zerrelerini her durumda oynat
@@ -1646,43 +2265,49 @@ const GameEngine = {
 
         // 2. Oyuncuyu Güncelle
         this.player.update(Keyboard, Mouse, this);
+        this.updateExploredRooms();
 
         // Satıcıyı Güncelle
         if (this.merchant) this.merchant.update(this.player, this);
 
-        // Diyalog: düşük can eventleri
+        // Diyalog: düşük can eventleri — 5 saniyede bir kontrol (throttle)
         if (window.DialogSystem && this.player) {
-            const hpRatio = this.player.hp / this.player.getMaxHp();
-            if (hpRatio <= 0.12) DialogSystem.triggerEvent('critical_hp');
-            else if (hpRatio <= 0.30) DialogSystem.triggerEvent('low_hp');
+            this._hpAlertTimer = (this._hpAlertTimer || 0) - 1;
+            if (this._hpAlertTimer <= 0) {
+                const hpRatio = this.player.hp / this.player.getMaxHp();
+                if (hpRatio <= 0.12) { DialogSystem.triggerEvent('critical_hp'); this._hpAlertTimer = 300; }
+                else if (hpRatio <= 0.30) { DialogSystem.triggerEvent('low_hp'); this._hpAlertTimer = 300; }
+            }
         }
 
         // Başarım bildirimi sayacı
         if (this.achievementNotif && this.achievementNotif.timer > 0) this.achievementNotif.timer--;
         else if (this.achievementNotif && this.achievementNotif.timer === 0) this.achievementNotif = null;
 
-        // Gold achievement kontrolü (her frame değil, sadece gold değişince)
-        if (this.player && this.player.gold >= 500) this._checkAchievements();
-
-        // Boss Can Barı HUD güncellemesi
+        // Boss Can Barı HUD güncellemesi — sadece değer değişince yaz (DOM thrash önlenir)
         if (this.boss) {
-            const hpPercent = Math.max(0, (this.boss.hp / this.boss.maxHp) * 100);
-            const barEl = document.getElementById('boss-hp-bar');
-            barEl.style.width = `${hpPercent}%`;
-
-            // Faz rengi: 1=kırmızı, 2=turuncu, 3=mor, 4=pembe alev
-            const phaseColors = ['#ff3b30', '#ff8c00', '#b026ff', '#ff2d78'];
-            barEl.style.background = phaseColors[(this.boss.phase || 1) - 1];
-
-            // Boss adı faz göstergesiyle güncelle
-            const nameEl = document.getElementById('boss-name');
-            if (nameEl) {
-                const phaseStr = this.boss.phase > 1 ? ` — FAZ ${this.boss.phase}` : '';
-                nameEl.textContent = `${this.boss.name}${phaseStr}`;
+            const hpPercent = Math.round(Math.max(0, (this.boss.hp / this.boss.maxHp) * 100));
+            const phase = this.boss.phase || 1;
+            if (hpPercent !== this._lastBossHpPct) {
+                this._lastBossHpPct = hpPercent;
+                if (this._elBossBar) this._elBossBar.style.width = `${hpPercent}%`;
+            }
+            if (phase !== this._lastBossPhase) {
+                this._lastBossPhase = phase;
+                const phaseColors = ['#ff3b30', '#ff8c00', '#b026ff', '#ff2d78'];
+                if (this._elBossBar) this._elBossBar.style.background = phaseColors[phase - 1];
+                if (this._elBossName) {
+                    const phaseStr = phase > 1 ? ` — FAZ ${phase}` : '';
+                    this._elBossName.textContent = `${this.boss.name}${phaseStr}`;
+                }
             }
 
             if (this.boss.hp <= 0) {
+                this._lastBossHpPct = -1;
+                this._lastBossPhase = -1;
                 const bossZone = Math.ceil(this.floor / 10);
+                const deadBossX = this.boss.x;
+                const deadBossY = this.boss.y;
                 this.boss = null;
                 document.getElementById('boss-hud').classList.remove('active');
                 // Boss post-diyalogu tetikle
@@ -1692,9 +2317,14 @@ const GameEngine = {
                     this._firstBossKilled = true;
                     setTimeout(() => DialogSystem.triggerEvent('first_boss_kill'), 2800);
                 }
-                // Kat 100 boss'u yenildi → ZAFERİ KAZAN!
+                // Kat 100: Aetherion yenildi → Kârun'u çağır; Kârun da yenildi → Son seçim
                 if (this.floor === 100) {
-                    setTimeout(() => this.showVictory(), 1200);
+                    if (!this._karunSpawned) {
+                        this._karunSpawned = true;
+                        setTimeout(() => this._spawnKarunFinal(deadBossX, deadBossY), 1800);
+                    } else {
+                        setTimeout(() => this.showEndingChoice(), 2000);
+                    }
                 }
             }
         }
@@ -1725,17 +2355,24 @@ const GameEngine = {
             }
         }
 
-        // Dinamik müzik: yakın düşman varsa savaş moduna geç
+        // Dinamik müzik + zoom kamerası: yakın düşman varsa savaş moduna geç
         if (SoundEngine.musicPlaying && this.enemies.length > 0) {
             const inCombat = this.enemies.some(e => Math.hypot(e.x - this.player.x, e.y - this.player.y) < 220);
             if (inCombat !== this._lastCombatState) {
                 this._lastCombatState = inCombat;
                 if (SoundEngine.setCombatMode) SoundEngine.setCombatMode(inCombat);
+                // UI combatfade: savaştayken kenar panelleri soldur
+                const wrapper = document.querySelector('.dashboard-wrapper');
+                if (wrapper) wrapper.classList.toggle('in-combat', inCombat);
             }
         } else if (this._lastCombatState) {
             this._lastCombatState = false;
             if (SoundEngine.setCombatMode) SoundEngine.setCombatMode(false);
+            const wrapper = document.querySelector('.dashboard-wrapper');
+            if (wrapper) wrapper.classList.remove('in-combat');
         }
+        // Her kare zoom güncelle (lerp ile yumuşak geçiş)
+        World.updateZoom(this._lastCombatState);
 
         // 4. Ganimetleri Güncelle
         this.items.forEach(item => item.update());
@@ -1747,9 +2384,46 @@ const GameEngine = {
             return p.life > 0;
         });
 
+        // 4.5. Zemin İzlerini Güncelle (GroundMark sistemi)
+        if (this.groundMarks && this.groundMarks.length > 0) {
+            this.groundMarks.forEach(m => m.update());
+            this.groundMarks = this.groundMarks.filter(m => m.life > 0);
+            // Asit havuzu oyuncu üzerine gelirse yavaşlatma debuff'ı
+            if (this.player) {
+                for (const m of this.groundMarks) {
+                    if (m.type === 'acid' && m.size > 5) {
+                        const d = Math.hypot(this.player.x - m.x, this.player.y - m.y);
+                        if (d < m.size * 0.85) {
+                            if (this.player.applyDebuff) this.player.applyDebuff('slow', this);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
         // 5. Partikülleri Güncelle (Süreleri bittiyse sil)
         this.particles.forEach(p => p.update());
         this.particles = this.particles.filter(p => p.life > 0);
+
+        // 5.5. Void Pulse Çekimi — Yok-Damla ölümünde yakın partikülleri içe çeker
+        if (this.voidPulses && this.voidPulses.length > 0) {
+            for (const vp of this.voidPulses) {
+                vp.life--;
+                const pull = vp.strength * (vp.life / vp.maxLife);
+                for (const p of this.particles) {
+                    const dx = vp.x - p.x;
+                    const dy = vp.y - p.y;
+                    const dist = Math.hypot(dx, dy);
+                    if (dist > 2 && dist < vp.radius) {
+                        const f = pull / Math.max(dist, 8);
+                        p.vx += dx * f;
+                        p.vy += dy * f;
+                    }
+                }
+            }
+            this.voidPulses = this.voidPulses.filter(vp => vp.life > 0);
+        }
 
         // 6. Uçan Metinleri Güncelle
         this.textParticles.forEach(tp => tp.update());
@@ -1767,14 +2441,23 @@ const GameEngine = {
         // 2. Ana oyun canvas ekranını temizle
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
-        // Çizimleri sarsıntı efekti (Screen Shake) için korumaya al (save)
+        // Çizimleri sarsıntı + sunum zoom için korumaya al
         this.ctx.save();
-        
+
         // Darbe anında ekranı sars
         ScreenEffects.apply(this.ctx);
 
+        // Sunum büyütmesi — tüm dünya katmanını oyuncuya yaklaştırır
+        const _prezZoom = World.getCurrentZoom();
+        this.ctx.scale(_prezZoom, _prezZoom);
+
         // Zindan Karolarını Çiz
         World.draw(this.ctx, this.canvas.width, this.canvas.height);
+
+        // Zemin İzlerini Çiz (slime etkileşim izleri — tile üstünde, entity altında)
+        if (this.groundMarks && this.groundMarks.length > 0) {
+            this.groundMarks.forEach(m => m.draw(this.ctx, World.camera));
+        }
 
         // Çıkış Portalını Çiz
         const portalDrawX = World.portal.x - World.camera.x - 24;
@@ -1851,27 +2534,71 @@ const GameEngine = {
         // Sarsıntı matrisini kapat
         this.ctx.restore();
 
-        // ─── ZİNDAN BÖLGE RENK OVERLAY (10 farklı bölge) ───
+        // ─── ZİNDAN BÖLGE RENK OVERLAY ───
         if (this.state === 'playing') {
-            const zone = Math.ceil(this.floor / 10);
-            let biomeColor = null;
-            if (zone === 2)  biomeColor = 'rgba(80,0,80,0.07)';       // Gölge Mağarası
-            else if (zone === 3)  biomeColor = 'rgba(100,50,0,0.08)'; // Goblin/Zombi
-            else if (zone === 4)  biomeColor = 'rgba(200,60,0,0.08)'; // Alev Krallığı
-            else if (zone === 5)  biomeColor = 'rgba(0,80,180,0.09)'; // Donmuş Tundra
-            else if (zone === 6)  biomeColor = 'rgba(0,100,30,0.08)'; // Orman Tapınağı
-            else if (zone === 7)  biomeColor = 'rgba(180,0,0,0.10)';  // Şeytan Kalesi
-            else if (zone === 8)  biomeColor = 'rgba(80,180,255,0.07)';// Gökyüzü Kalesi
-            else if (zone === 9)  biomeColor = 'rgba(0,0,40,0.13)';   // Yokluk Alemi
-            else if (zone === 10) biomeColor = 'rgba(200,80,0,0.10)'; // Ejder Yuvası / Uçurum
-            // Boss katında ek karanlık overlay
-            if (this.floor % 10 === 0) biomeColor = 'rgba(150,0,255,0.14)';
-            if (biomeColor) {
+            World.drawZoneAtmosphere(this.ctx, this.floor, this.canvas.width, this.canvas.height);
+        }
+
+        // ─── SINIF KİMLİĞİ OVERLAY ───────────────────────────────────────────
+        if (this.state === 'playing' && this.player) {
+            const cls = this.selectedClass;
+            const cw = this.canvas.width;
+            const ch = this.canvas.height;
+            const hp = this.player.hp;
+            const maxHp = this.player.getMaxHp();
+            const hpRatio = hp / maxHp;
+
+            if (cls === 'warrior' && hpRatio < 0.30) {
+                // SAVAŞÇI: Düşük Can — Dayanma içgüdüsü kırmızı nabız
+                const pulse = 0.5 + Math.sin(Date.now() / 220) * 0.35;
+                const intensity = (0.30 - hpRatio) / 0.30; // 0→1 as HP drops
+                const vg = this.ctx.createRadialGradient(cw/2, ch/2, ch * 0.15, cw/2, ch/2, ch * 0.9);
+                vg.addColorStop(0, 'rgba(0,0,0,0)');
+                vg.addColorStop(1, `rgba(180,0,0,${intensity * pulse * 0.45})`);
                 this.ctx.save();
-                this.ctx.fillStyle = biomeColor;
-                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                this.ctx.fillStyle = vg;
+                this.ctx.fillRect(0, 0, cw, ch);
+                // "DAYANIYORUM" yazısı — sadece kritik düşükte
+                if (hpRatio < 0.12) {
+                    this.ctx.globalAlpha = pulse * 0.65;
+                    this.ctx.font = "bold 8px 'Press Start 2P'";
+                    this.ctx.fillStyle = '#ff2222';
+                    this.ctx.textAlign = 'center';
+                    this.ctx.fillText('DAYANIYORUM...', cw / 2, ch - 32);
+                }
                 this.ctx.restore();
             }
+
+            if (cls === 'ranger' && this.player.r_phase === 'idle' && !this.player.isMoving) {
+                // NİŞANCI: Durağan — pasif avcı sahnesi (köşelerde ince gölge)
+                this.ctx.save();
+                const cornerAlpha = 0.08 + Math.sin(Date.now() / 900) * 0.03;
+                ['topleft','topright','bottomleft','bottomright'].forEach((c, i) => {
+                    const cx2 = (i % 2 === 0) ? 0 : cw;
+                    const cy2 = (i < 2)       ? 0 : ch;
+                    const cg = this.ctx.createRadialGradient(cx2, cy2, 0, cx2, cy2, cw * 0.45);
+                    cg.addColorStop(0, `rgba(5,2,18,${cornerAlpha * 2.5})`);
+                    cg.addColorStop(1, 'rgba(0,0,0,0)');
+                    this.ctx.fillStyle = cg;
+                    this.ctx.fillRect(0, 0, cw, ch);
+                });
+                this.ctx.restore();
+            }
+        }
+
+        // ─── WARRIOR İDAM OVERLAY (kırmızı vignette + yavaş geçiş) ───
+        if (this.executionTimer > 0) {
+            this.executionTimer--;
+            const alpha = (this.executionTimer / 22) * 0.55;
+            const cw = this.canvas.width;
+            const ch = this.canvas.height;
+            const grad = this.ctx.createRadialGradient(cw / 2, ch / 2, ch * 0.2, cw / 2, ch / 2, ch * 0.85);
+            grad.addColorStop(0, 'rgba(0,0,0,0)');
+            grad.addColorStop(1, `rgba(160,0,0,${alpha})`);
+            this.ctx.save();
+            this.ctx.fillStyle = grad;
+            this.ctx.fillRect(0, 0, cw, ch);
+            this.ctx.restore();
         }
 
         // ─── GÖREV PANELİ (sol üst) ───
@@ -1895,6 +2622,10 @@ const GameEngine = {
             this.ctx.fillStyle = '#aaa';
             this.ctx.fillText(done ? '✓ TAMAMLANDI!' : `${q.desc} (${prog}/${q.target})`, px + 6, py + 27);
             this.ctx.restore();
+        }
+
+        if (this.state === 'playing') {
+            this.drawMinimap();
         }
 
         // ─── BAŞARIM BİLDİRİMİ ───
@@ -2010,6 +2741,22 @@ const GameEngine = {
         this.updateUI();
     },
 
+    openBag() {
+        if (!this.player) return;
+        this._preBagState = this.state;
+        this.state = 'bag';
+        this.drawInventory();
+        const screen = document.getElementById('screen-bag');
+        if (screen) screen.classList.add('active');
+    },
+
+    closeBag() {
+        const screen = document.getElementById('screen-bag');
+        if (screen) screen.classList.remove('active');
+        this.state = this._preBagState && this._preBagState !== 'bag' ? this._preBagState : 'playing';
+        this.updateUI();
+    },
+
     _getItemCategory(type) {
         if (!type) return 'sword';
         return type.split('_')[0] || 'sword';
@@ -2023,9 +2770,10 @@ const GameEngine = {
         const rarityUp = { common: 'rare', rare: 'legendary' };
         const pairs = [];
         const used = new Set();
+        const mythicCards = this._appendMythicForgeCards(container);
 
         for (let i = 0; i < inv.length; i++) {
-            if (!isEquip(inv[i]) || inv[i].rarity === 'legendary' || used.has(i)) continue;
+            if (!isEquip(inv[i]) || inv[i].rarity === 'legendary' || inv[i].rarity === 'mythic' || used.has(i)) continue;
             for (let j = i + 1; j < inv.length; j++) {
                 if (!isEquip(inv[j]) || used.has(j)) continue;
                 if (inv[i].rarity === inv[j].rarity) {
@@ -2036,12 +2784,12 @@ const GameEngine = {
             }
         }
 
-        if (pairs.length === 0) {
+        if (pairs.length === 0 && mythicCards === 0) {
             container.innerHTML = '<div style="color:#888;font-size:10px;text-align:center;width:100%;padding:24px 0">Birleştirilebilecek eşya yok.<br><span style="color:#555">Aynı nadirlikte 2 ekipman gerekli.</span></div>';
             return;
         }
 
-        const cost = { common: 20, rare: 50 };
+        const cost = { common: 35, rare: 95 };
         const rarityColor = { rare: 'var(--neon-cyan)', legendary: 'var(--neon-gold)' };
         const rarityName = { rare: 'NADİR', legendary: 'EFSANEVİ' };
 
@@ -2073,6 +2821,76 @@ const GameEngine = {
         });
     },
 
+    _appendMythicForgeCards(container) {
+        const inv = this.player.inventory;
+        const stones = inv.filter(i => i.type && i.type.startsWith('stone_') && !i.type.startsWith('stone_shard_'));
+        const candidates = inv
+            .map((item, index) => ({ item, index }))
+            .filter(({ item }) => item.stats && item.rarity === 'legendary');
+        if (candidates.length === 0) return 0;
+
+        const header = document.createElement('div');
+        header.style.cssText = 'width:100%;font-size:9px;color:var(--rarity-mythic);text-align:center;margin:2px 0 0;font-family:var(--font-pixel)';
+        header.textContent = 'KIZIL DOVUM';
+        container.appendChild(header);
+
+        candidates.forEach(({ item, index }) => {
+            const cost = 1800 + Math.floor((this.floor || 1) * 18);
+            const canCraft = this.player.gold >= cost && stones.length > 0;
+            const el = document.createElement('div');
+            el.style.cssText = `border:1px solid ${canCraft ? 'var(--rarity-mythic)' : '#333'};border-radius:8px;padding:10px 14px;text-align:center;min-width:170px;max-width:190px;background:rgba(0,0,0,0.58);transition:border-color 0.2s;${canCraft ? 'cursor:pointer' : 'opacity:0.45'}`;
+            if (canCraft) el.addEventListener('click', () => this.craftMythicItem(index, cost));
+            el.innerHTML = `
+                <div style="font-size:9px;color:var(--rarity-legendary);margin-bottom:5px">${item.name}</div>
+                <div style="font-size:8px;color:#aaa;margin-bottom:5px">+ 1 TAM TAS + ${cost} ALTIN</div>
+                <div style="font-size:9px;color:var(--rarity-mythic)">→ KIZIL EKIPMAN</div>
+            `;
+            container.appendChild(el);
+        });
+        return candidates.length;
+    },
+
+    craftMythicItem(index, cost) {
+        const item = this.player.inventory[index];
+        if (!item || item.rarity !== 'legendary' || this.player.gold < cost) return;
+        const stoneIndex = this.player.inventory.findIndex(i => i.type && i.type.startsWith('stone_') && !i.type.startsWith('stone_shard_'));
+        if (stoneIndex === -1) {
+            this.addLog("Kizil dovum icin tam bir tas gerekli.", "system");
+            return;
+        }
+
+        const stone = this.player.inventory[stoneIndex];
+        if ((stone.count || 1) > 1) stone.count--;
+        else this.player.inventory.splice(stoneIndex, 1);
+
+        const mythic = {
+            ...item,
+            id: Math.random().toString(36).substring(2, 9),
+            type: item.type.replace('_legendary', '_mythic'),
+            name: item.name.replace(/Efsanevi|Kadim|Kristal/g, '').trim()
+        };
+        mythic.name = `Kizil ${mythic.name}`;
+        mythic.rarity = 'mythic';
+        mythic.stats = { ...(item.stats || {}) };
+        if (mythic.stats.atk) mythic.stats.atk += 6;
+        if (mythic.stats.def) mythic.stats.def += 4;
+        if (mythic.stats.hp) mythic.stats.hp += 25;
+        if (mythic.stats.crit) mythic.stats.crit += 4;
+        mythic.socketLimit = 2;
+        mythic.sockets = item.sockets ? [...item.sockets] : [];
+        mythic.description = `${item.description || ''} Kizil dovumla guclendirildi. 2 tas yuvasi vardir.`;
+
+        const targetIndex = this.player.inventory.indexOf(item);
+        if (targetIndex === -1) return;
+        this.player.inventory[targetIndex] = mythic;
+        this.player.gold -= cost;
+        SoundEngine.playForge();
+        this.addLog(`[${item.name}] kizil ekipmana donustu: [${mythic.name}]`, "loot");
+        this.triggerScreenShake(6);
+        this.drawForge();
+        this.updateUI();
+    },
+
     mergeItems(idxA, idxB, newRarity, mergeCost) {
         const a = this.player.inventory[idxA];
         const b = this.player.inventory[idxB];
@@ -2087,7 +2905,7 @@ const GameEngine = {
         const newItem = new Item(this.player.x, this.player.y, cat + '_' + newRarity);
         this.player.inventory.push(newItem);
 
-        SoundEngine.playLevelUp();
+        SoundEngine.playForge();
         this.addLog(`⚒ [${a.name}] + [${b.name}] → [${newItem.name}]`, "loot");
         this.triggerScreenShake(3);
         this.drawForge();
@@ -2097,16 +2915,16 @@ const GameEngine = {
     generateShopItems() {
         const isSpecial = this.merchant && this.merchant.isSpecial;
         // Fiyat çarpanı: her 10 katta %40 artar (logaritmik)
-        const floorPriceMult = 1.0 + Math.floor((this.floor - 1) / 10) * 0.4;
+        const floorPriceMult = 1.0 + Math.floor((this.floor - 1) / 10) * 0.55;
         this.shopItems = [];
 
         // 1. Birinci Slot: İksir (Sağlık veya Hız)
         const potType = Math.random() < 0.6 ? 'potion_red' : 'potion_blue';
-        const potPrice = Math.floor((isSpecial ? 30 : 15) * floorPriceMult);
+        const potPrice = Math.floor((isSpecial ? 42 : 22) * floorPriceMult);
         this.shopItems.push({
             type: potType,
             name: potType === 'potion_red' ? 'Büyük Sağlık İksiri' : 'Kadim Hız İksiri',
-            rarity: isSpecial ? 'legendary' : 'rare',
+            rarity: isSpecial && this.floor >= 15 ? 'legendary' : 'rare',
             price: potPrice,
             stats: {},
             description: potType === 'potion_red' 
@@ -2116,26 +2934,30 @@ const GameEngine = {
         });
 
         // 2, 3, 4. Slotlar: Rastgele Ekipman Parçaları!
-        const gearCategories = ['sword', 'bow', 'armor', 'helmet', 'necklace', 'earrings', 'ring', 'gloves', 'boots'];
+        const gearCategories = ['sword', 'bow', 'staff', 'shield', 'armor', 'helmet', 'necklace', 'earrings', 'ring', 'gloves', 'boots'];
         
         for (let i = 0; i < 3; i++) {
             // Her slot için rastgele kategori seç
             const category = gearCategories[Math.floor(Math.random() * gearCategories.length)];
             
             // Nadirlik belirle:
-            // Özel satıcıda en az 1 efsanevi garanti, diğerleri de rare/legendary
+            // Özel satıcı erken oyunda rare kalır; efsanevi garanti 15. kattan sonra açılır
             // Normal satıcıda ise çoğunlukla common/rare, çok nadiren legendary
             let rarity = 'common';
             if (isSpecial) {
-                if (i === 0) {
+                if (this.floor < 15) {
+                    rarity = 'rare';
+                } else if (i === 0) {
                     rarity = 'legendary';
                 } else {
                     rarity = Math.random() < 0.45 ? 'legendary' : 'rare';
                 }
             } else {
                 const rRoll = Math.random();
-                if (rRoll < 0.06) rarity = 'legendary';
-                else if (rRoll < 0.30) rarity = 'rare';
+                const legendaryChance = this.floor < 10 ? 0.00 : this.floor < 25 ? 0.025 : 0.055;
+                const rareChance = this.floor < 10 ? 0.22 : this.floor < 25 ? 0.32 : 0.42;
+                if (rRoll < legendaryChance) rarity = 'legendary';
+                else if (rRoll < legendaryChance + rareChance) rarity = 'rare';
                 else rarity = 'common';
             }
 
@@ -2146,10 +2968,10 @@ const GameEngine = {
             const description = tempItem.description;
 
             // Fiyatı belirle (kata göre ölçekli)
-            let price = 25;
-            if (rarity === 'common') price = Math.floor((Math.random() * 12 + 22) * floorPriceMult);
-            else if (rarity === 'rare') price = Math.floor((Math.random() * 22 + 48) * floorPriceMult);
-            else if (rarity === 'legendary') price = Math.floor((Math.random() * 50 + 110) * floorPriceMult);
+            let price = 35;
+            if (rarity === 'common') price = Math.floor((Math.random() * 14 + 34) * floorPriceMult);
+            else if (rarity === 'rare') price = Math.floor((Math.random() * 30 + 88) * floorPriceMult);
+            else if (rarity === 'legendary') price = Math.floor((Math.random() * 90 + 240) * floorPriceMult);
 
             this.shopItems.push({
                 type: `${category}_${rarity}`,
@@ -2157,6 +2979,7 @@ const GameEngine = {
                 rarity: rarity,
                 price: price,
                 stats: stats,
+                effect: tempItem.effect,
                 description: description,
                 sold: false
             });
@@ -2193,6 +3016,8 @@ const GameEngine = {
                 if (item.stats.spd) statText += `<div class="shop-stat purple-color">+${Math.floor(item.stats.spd * 100)}% HIZ</div>`;
                 if (item.stats.crit) statText += `<div class="shop-stat gold-color">+${item.stats.crit}% KRİTİK</div>`;
             }
+            const effectText = this._getItemEffectText(item);
+            if (effectText) statText += `<div class="shop-stat purple-color">${effectText}</div>`;
 
             infoDiv.innerHTML = `
                 <h3 class="pixel-text shop-item-name rarity-color-${item.rarity}">${item.name.toUpperCase()}</h3>
@@ -2230,6 +3055,62 @@ const GameEngine = {
 
             container.appendChild(card);
         });
+
+        this.drawTrainingCards(container);
+    },
+
+    _trainingOptions() {
+        const floorMult = 1 + Math.floor((this.floor - 1) / 10) * 0.45;
+        const repeatMult = 1 + (this.trainingPurchases || 0) * 0.18;
+        return [
+            { key: 'atk', title: 'SILAH TALIMI', desc: 'Kalici +1 saldiri.', stat: '+1 HASAR', cost: Math.floor(75 * floorMult * repeatMult), action: () => { this.player.stats.atk += 1; } },
+            { key: 'def', title: 'ZIRH TALIMI', desc: 'Kalici +1 defans.', stat: '+1 DEFANS', cost: Math.floor(80 * floorMult * repeatMult), action: () => { this.player.stats.def += 1; } },
+            { key: 'hp', title: 'DAYANIKLILIK', desc: 'Kalici +8 maks can.', stat: '+8 CAN', cost: Math.floor(90 * floorMult * repeatMult), action: () => { this.player.stats.maxHp += 8; this.player.hp = Math.min(this.player.getMaxHp(), this.player.hp + 8); } },
+            { key: 'crit', title: 'KESKIN GOZ', desc: 'Kalici +2% kritik.', stat: '+2% KRITIK', cost: Math.floor(115 * floorMult * repeatMult), action: () => { this.player.stats.crit += 2; } }
+        ];
+    },
+
+    drawTrainingCards(container) {
+        const header = document.createElement('div');
+        header.style.cssText = 'width:100%;font-size:9px;color:var(--neon-cyan);text-align:center;margin:4px 0 0;font-family:var(--font-pixel)';
+        header.textContent = 'ALTINLA ANTRENMAN';
+        container.appendChild(header);
+
+        this._trainingOptions().forEach(opt => {
+            const card = document.createElement('div');
+            card.className = 'shop-card rarity-common';
+            card.innerHTML = `
+                <div class="shop-item-info">
+                    <h3 class="pixel-text shop-item-name rarity-color-rare">${opt.title}</h3>
+                    <p class="shop-item-desc">${opt.desc}</p>
+                    <div class="shop-stat gold-color">${opt.stat}</div>
+                </div>
+                <div class="shop-action-area"></div>
+            `;
+            const actionDiv = card.querySelector('.shop-action-area');
+            const displayPrice = this.player.hasBarter ? Math.floor(opt.cost * 0.9) : opt.cost;
+            const btn = document.createElement('button');
+            btn.className = `shop-buy-btn ${this.player.gold >= displayPrice ? '' : 'poor'}`;
+            btn.innerHTML = `<span>EGITIM AL</span><span class="shop-price-tag"><i class="fa-solid fa-coins gold-color"></i> ${displayPrice}g</span>`;
+            btn.addEventListener('click', () => this.buyTraining(opt, displayPrice));
+            actionDiv.appendChild(btn);
+            container.appendChild(card);
+        });
+    },
+
+    buyTraining(opt, price) {
+        if (this.player.gold < price) {
+            SoundEngine.playHit();
+            this.addLog("Yetersiz altin! Egitim alamazsin.", "system");
+            return;
+        }
+        this.player.gold -= price;
+        opt.action();
+        this.trainingPurchases = (this.trainingPurchases || 0) + 1;
+        SoundEngine.playBuy();
+        this.addLog(`Egitim alindi: ${opt.title} (${opt.stat})`, "level");
+        this.updateUI();
+        this.drawShop();
     },
 
     buyShopItem(index) {

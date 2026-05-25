@@ -20,52 +20,53 @@ const DIALOGUE_DATA = {
 
     zone_entry: {
         1: [
-            { speaker: 'NARRATOR', text: 'Karanlık Zindan\'ın derinliklerine adım attın...' },
-            { speaker: 'SERA',     text: 'Şövalye! Ben Sera\'yım — seninle yolculuk eden ruh rehberin. Bu zindanlar ölümcül, ama sen bir şeyler bulmak için buraya geldin.' },
-            { speaker: 'SERA',     text: 'Kârun adında biri bu karanlıkları yönetiyor. Onun izini sürüyorum. Dikkatli ol ve karanlıktan korkma... henüz.' },
+            { speaker: 'NARRATOR', text: 'Karanlık Zindan. Tarikatın yeryüzüne en yakın kışlasıydı bir zamanlar. Şimdi rutubetli bir yıkıntı. Duvarlardaki rünlerin üzeri mor büyü izleriyle kirletilmiş.' },
+            { speaker: 'SERA',     text: 'Şövalye... Elinde kırık kılıç, hafızan silinmiş, neden burada olduğunu bilmiyorsun. Ben seni hatırlıyorum. Sen benim soyumsun. Şimdi sadece bana güven — ayakta dur ve savaş.' },
+            { speaker: 'SERA',     text: 'Kârun bu karanlıkları 200 yıldır yönetiyor. O seni yakaladı, hafızanı sildi. Ama hata yaptı — seni öldürmedi. Şimdi bu onun sonu olacak.' },
         ],
         2: [
-            { speaker: 'NARRATOR', text: 'Gölge Mağarası. Işık buraya ulaşmayı çoktan bırakmış.' },
-            { speaker: 'SERA',     text: 'Gözlerin görmediği yerde kulakların dinlesin. Düşmanlar seni duyduğunda sen de onları duymuş ol.' },
+            { speaker: 'NARRATOR', text: 'Gölge Mağarası. Soluk mor kristaller tek aydınlatma kaynağı. Duvarlardaki gölgeler hareket ediyor, fısıldıyor...' },
+            { speaker: 'SERA',     text: 'Bu sesler gerçek. Kârun\'un ritüeli sırasında bedenleri sökülen tarikat üyeleri... gölge yaratıklarına dönüştüler. Işığı ve yaşamı emiyorlar. Dikkatli ol.' },
         ],
         3: [
-            { speaker: 'NARRATOR', text: 'Goblin Yurdu. Bir çürüme kokusu havayı kaplıyor.' },
-            { speaker: 'SERA',     text: 'Goblinler aptal değil, sadece vahşi. Onları küçümseme. Kârun onları örgütlemiş — yani liderlerini ara.' },
+            { speaker: 'NARRATOR', text: 'Goblin Yurdu. Halat köprüler, asılı demir kafesler, sarı zehir akan nehirler. Esir köylüler madende zorla çalıştırılıyor.' },
+            { speaker: 'SERA',     text: 'Kârun goblin kabilelerini köleleştirdi. Aetherium ile besledi — onları canavarlaştırdı. Şövalye, esir köylüleri gördüğünde kurtarmayı unutma. Onlar masum.' },
+            { speaker: 'KARUN',    text: 'Sera sana köylülerden bahsediyor... Tatlı. Ama burada güçlü olan ayakta kalır. Bunları kurtarmaya vakit harcamak seni yavaşlatır.' },
         ],
         4: [
-            { speaker: 'NARRATOR', text: 'Alev Krallığı. Zemin sıcaklıktan titriyor.' },
-            { speaker: 'SERA',     text: 'Kârun\'un izini burada çok daha güçlü hissedebiliyorum. Artık bizi izliyor olabilir.' },
-            { speaker: 'KARUN',    text: '...Gidişatın beni eğlendiriyor, küçük şövalye. Devam et.' },
-            { speaker: 'SERA',     text: 'O! Buraya bile ulaşmış. Şövalye, çok dikkatli ol.' },
+            { speaker: 'NARRATOR', text: 'Alev Krallığı. Gorgoroth\'un jeotermal tapınakları. Lav şelaleleri, uçuşan siyah küller, yanan bazalt.' },
+            { speaker: 'SERA',     text: 'Kârun\'un enerjisini burada çok daha güçlü hissediyorum. Buradaki tarikat büyücüleri yozlaşmış rahiplere dönüştü. Bedenlerini ateşe teslim ettiler.' },
+            { speaker: 'KARUN',    text: '...Gidişatın beni endişelendirmeye başlıyor, şövalye. Devam et bakalım.' },
         ],
         5: [
-            { speaker: 'NARRATOR', text: 'Donmuş Tundra. Soğuk kemiklerine kadar işliyor.' },
-            { speaker: 'SERA',     text: 'Burada bir zamanlar büyük bir imparatorluk vardı. Kârun her şeyi dondurdu. Kalıntılar arasında bir şey arıyor.' },
+            { speaker: 'NARRATOR', text: 'Donmuş Tundra. Buz duvarlarının içinde 200 yıl önce donmuş insanların siluetleri görünüyor. Soğuk rüzgar tünellerde uğulduyor.' },
+            { speaker: 'SERA',     text: 'Frostgard krallığının altındaki donmuş kalıntılar. Kârun buraya ulaştığında en uzun direnen krallıktı. Kral Alden son ana kadar savaştı.' },
+            { speaker: 'KARUN',    text: 'Alden\'ı hatırlıyorum. Direnmek onu ne yaptı? Tahtına zincirlenmiş dondurdum. Bütün bunları "doğru" olduğu için yaptım, şövalye.' },
         ],
         6: [
-            { speaker: 'NARRATOR', text: 'Orman Tapınağı. Eski güçlerin yattığı kutsal bir yer.' },
-            { speaker: 'SERA',     text: 'Kârun buraya dokunmamalıydı. Bu topraklar binlerce yıldır korunuyor.' },
-            { speaker: 'KARUN',    text: 'Kutsal mı? Hiçbir şey kutsal değil. Güçlü olan kalır, zayıf olan silinir.' },
-            { speaker: 'SERA',     text: 'Onun sesini duydun mu? Aramızdaki mesafe azalıyor. Yakında yüz yüze geleceksin.' },
+            { speaker: 'NARRATOR', text: 'Orman Tapınağı. Hayat Ağacı\'nın kalıntıları. Dev kökler sütunları sarmış, mor zehirli sporlar havada süzülüyor. Su pınarları Aetherium zehriyle akıyor.' },
+            { speaker: 'SERA',     text: 'Bu benim gücümü aldığım kutsal tapınak. Kârun buna dokunmamalıydı... Lyra burada bir yerde. En yakın arkadaşım. Onu Hayat Ağacı\'na bağladı.' },
+            { speaker: 'KARUN',    text: 'Kutsal mı? Dünya kuruyorken hiçbir şey kutsal değil. Sadece güç ve çözümler var. Sen bunları anlayamazsın.' },
         ],
         7: [
-            { speaker: 'NARRATOR', text: 'Şeytan Kalesi. Buradaki kurbanlar çığlık atmaktan vazgeçmiş.' },
-            { speaker: 'SERA',     text: 'Şövalye... buradan sonra geri dönmek zorlaşıyor. Kararını ver. Devam edecek misin?' },
+            { speaker: 'NARRATOR', text: 'Şeytan Kalesi. Kara demir ve obsidyenden gotik şato. Duvarlarda kanla yazılmış isimler — Kârun\'un kurbanları. Yokluk portalları mor alevlerle yanıyor.' },
+            { speaker: 'SERA',     text: 'Şövalye... Yedinci bölgeye ulaştın. Buradan sonra artık geri dönüş yok. Ama sen zaten bunu biliyorsun. Devam et.' },
+            { speaker: 'KARUN',    text: 'Bu isimleri okuyorsan bil: Hepsi güçsüz olduğu için orada. Ben dünyayı kurtarmaya çalışıyorum. Bedel bu.' },
         ],
         8: [
-            { speaker: 'NARRATOR', text: 'Gökyüzü Kalesi. Yere bakmaya cesaret edersen yüksekliği hissedersin.' },
-            { speaker: 'KARUN',    text: 'Buraya kadar gelebildin... Seni beklenmedenden daha dayanıklı buluyorum.' },
-            { speaker: 'SERA',     text: 'Kârun\'un merkezi bu bölgede bir yerde. Az kaldı. Hazır mısın?' },
+            { speaker: 'NARRATOR', text: 'Gökyüzü Kalesi. Yerçekimini bükücü rünlerle havada asılı tutulan beyaz mermer yollar. Bulutların üzerinde bir his.' },
+            { speaker: 'KARUN',    text: 'Buraya kadar gelebildin... Beklenmedik. Valerius\'u hatırlar mısın, şövalye? Hafızan silinik, ama belki bir şeyler kalmıştır.' },
+            { speaker: 'SERA',     text: 'Şövalye — sekizinci bölge. Kârun\'un konsey sarayı. Dikkatli ol, buradaki varlıklar eskiden en güçlü bilgelerimizdi.' },
         ],
         9: [
-            { speaker: 'NARRATOR', text: 'Yokluk Alemi. Gerçeklik burada çözülüyor, sınırlar bulanık.' },
-            { speaker: 'SERA',     text: 'Bu yer Kârun\'un gücüyle şekillendi. Buradaki hiçbir şey gerçek değil. Ama acı — acı gerçek.' },
-            { speaker: 'KARUN',    text: 'Sonuna yaklaştın, şövalye. Bu bitişin mi, başlangıcın mı olduğunu henüz bilmiyorsun.' },
+            { speaker: 'NARRATOR', text: 'Yokluk Alemi. Fizik kuralları işlemiyor. Gerçeklik yırtılmış. Havada kırık taşlar ve ayna parçaları süzülüyor. Mor-siyah sonsuzluk...' },
+            { speaker: 'SERA',     text: 'Bu yer Kârun\'un bile tam kontrol edemediği bir alan. Buradaki şeyler gerçek değil — ama acı gerçek. Bir uyarı: Kendi yansımanı görebilirsin. Savaşmak zorunda kalacaksın.' },
+            { speaker: 'KARUN',    text: 'Yokluk Alemi\'ne hoş geldin. Ben de burada pek rahat değilim, açıkçası. Nihil... planlarımın dışında.' },
         ],
         10: [
-            { speaker: 'NARRATOR', text: 'Ejder Yuvası. Tüm zindan bu noktada birleşiyor.' },
-            { speaker: 'SERA',     text: 'Şövalye — bu son bölge. Kârun\'un kalesi burada. Hazırsan... hepsini bitir.' },
-            { speaker: 'KARUN',    text: 'Sonunda geldin. Oyun sona eriyor. Ama kazananın kim olduğuna şimdi karar vereceğiz.' },
+            { speaker: 'NARRATOR', text: 'Ejder Yuvası ve Taht Odası. Dünyanın Kalbi\'nin kızıl-altın enerjisi her yeri kaplıyor. Altın rün damarları zeminden geçiyor. Ve orada... Kârun\'un kara tahtı, kalbin tam üzerinde.' },
+            { speaker: 'SERA',     text: 'Şövalye — bu son bölge. Kârun seni 200 yıl aradı. Senin kanına ihtiyacı var. Dünyanın Kalbi\'ni kontrol etmek için. Bugün bu zindan biter.' },
+            { speaker: 'KARUN',    text: 'Sonunda geldin, torun. Artık kaçış yok. Ne yapacağını seç: Benimle ol... ya da her şey yok olsun.' },
         ],
     },
 
@@ -93,60 +94,98 @@ const DIALOGUE_DATA = {
 
     boss_pre: {
         1:  [
-            { speaker: 'NARRATOR', text: 'Karanlık bir varlık önünü kesiyor...' },
-            { speaker: 'SERA',     text: 'Kârun\'un birinci muhafızı! Dikkatli ol — zayıf noktasını bul ve var gücünle savaş!' },
+            { speaker: 'NARRATOR', text: 'Koridorun sonunda ağır zincir sesleri duyuluyor. Demir kapıyla bütünleşmiş devasa bir figür...' },
+            { speaker: 'SERA',     text: 'Kaelen! Tarikatın giriş kapısı koruyucusuydu. Kârun teslim olmayı reddetti diye bedenine erimiş zincirler kaynaklatmış. Onu kurtarmak için... önce yenmek zorundasın.' },
+            { speaker: 'NARRATOR', text: 'Kaelen — Zincirlenmiş Muhafız. Ağır demirlerle kapıya zincirlenmiş, acı içinde inleyen dev bir zırh yığını.' },
         ],
         2:  [
-            { speaker: 'NARRATOR', text: 'Gölgelerden dev bir figür şekilleniyor...' },
-            { speaker: 'SERA',     text: 'Gölge Muhafızı! Bu varlık ışığı soğuruyor. Hızlı ol, ya o ya sen!' },
+            { speaker: 'NARRATOR', text: 'Gölgeler şekil alıyor. Yarı saydam bir figür kristallerin ışığını içine çekiyor...' },
+            { speaker: 'SERA',     text: 'Vaelen! Kârun\'un en sadık çırağıydı. Ritüel sırasında bedeni eridi — Kârun onun ruhunu zindan\'ın gölge kuyusuna bağladı. Şimdi karanlığın kendisi.' },
+            { speaker: 'KARUN',    text: 'Vaelen, misafirlerimize zindan karanlığını öğret...' },
         ],
         3:  [
-            { speaker: 'KARUN',    text: 'Goblin Klanı\'nın en güçlüsünü seninle tanıştırayım...' },
-            { speaker: 'SERA',     text: 'Hazır mısın? Bu sadece başlangıç, şövalye!' },
+            { speaker: 'NARRATOR', text: 'Kemik tahtta oturan dev bir figür. Ayak sesleri taşı sarsiyor.' },
+            { speaker: 'KARUN',    text: "Grak'thor'u tanıştırayım sana. Benim için çalışmayı kabul eden ilk goblin şefiydi. Onu Aetherium ile besledim... ve işte bu oldu." },
+            { speaker: 'SERA',     text: "Grak'thor kölelere zulmediyor! Madendeki tutsakları kurtarabilmek için önce onu durdur!" },
         ],
         4:  [
-            { speaker: 'KARUN',    text: 'Alev Tanrısı\'nı serbest bıraktım. Umarım serinleyebilirsin...' },
-            { speaker: 'SERA',     text: 'Ateşten korkma! İçindeki gücü hatırla!' },
+            { speaker: 'NARRATOR', text: 'Zırhtan akan lav damlaları yeri yakıyor. Cehennemi adımlar yaklaşıyor...' },
+            { speaker: 'SERA',     text: 'Ignis! Tarikatın askeri komutanıydı. Kârun\'un "dünyayı arındırma" fikrine ilk inanan o oldu. Kardeşlerine ilk kılıç çeken de o.' },
+            { speaker: 'KARUN',    text: 'Ignis benim için savaştı. Şimdi seninle savaşıyor. Bir fark görmüyor musun, şövalye?' },
         ],
         5:  [
-            { speaker: 'NARRATOR', text: 'Tundra\'nın sonsuz buzundan doğmuş bir yaratık...' },
-            { speaker: 'SERA',     text: 'Soğuk sizi dondurmadan önce onu devir! Hızlı hareket et!' },
+            { speaker: 'NARRATOR', text: 'Buz kristallerinin içinde donmuş bir taht. Tahtın üzerinde nefreti dondurulmuş bir kral...' },
+            { speaker: 'SERA',     text: 'Kral Alden! Frostgard\'ın hükümdarıydı. Kârun\'a en uzun süre direndi. Kârun onu tahtına zincirleyerek diri diri dondurdu. İki yüz yıldır buz altında nefret birikiyor.' },
+            { speaker: 'KARUN',    text: 'Alden direndi. Ve işte bu yüzden orada. Direnenler hep böyle biter.' },
         ],
         6:  [
-            { speaker: 'KARUN',    text: 'Orman\'ın ruhunu benim için çalışmaya zorladım. Şimdi onu serbest bırakıyorum — üzerine.' },
-            { speaker: 'SERA',     text: 'Orman ruhu! Kârun onu yozlaştırmış. Kurtarabilmek için onu yenmek zorundayız.' },
+            { speaker: 'NARRATOR', text: 'Hayat Ağacı\'na bağlı, mor dikenlerle kaplı, acıyla ağlayan bir figür...' },
+            { speaker: 'SERA',     text: '...Lyra. Tanrım. Lyra benim en yakın arkadaşımdı. Tapınak koruyucusuydu. Kârun onu kutsal Hayat Ağacı\'na bağlayarak... buna dönüştürdü. Şövalye... onu kurtarmak için yenmek zorundayız.' },
+            { speaker: 'KARUN',    text: 'Sera\'nın arkadaşıyla tanışıyor musun? Güzel, değil mi? Bu Sera\'ya armağanımdı.' },
         ],
         7:  [
-            { speaker: 'KARUN',    text: 'Şeytan Kalesi\'nin efendisini hatırlatmak için... İşte o geliyor.' },
-            { speaker: 'SERA',     text: 'Tüm gücünü ver! Bu ana kadar hayatta kaldın — bu savaşı da kazanacaksın!' },
+            { speaker: 'NARRATOR', text: 'Yokluk portalından süzülen karanlık. Dev boynuzlar. Gölge kanatlar. Kozmik bir varlık...' },
+            { speaker: 'SERA',     text: 'Malakor! Kârun bunu kan paktıyla çağırdı. Yokluk boyutundan gelen kadim bir iblis generali. Kârun\'un en güçlü silahı.' },
+            { speaker: 'KARUN',    text: 'Malakor... onunla özel bir anlaşmam var. Seni canlı götürmesini istedim. Ama artık bunun için çok geç.' },
         ],
         8:  [
-            { speaker: 'KARUN',    text: 'Gökyüzü\'nün efendisi artık benim hizmetimde.' },
-            { speaker: 'SERA',     text: 'Sonuna yaklaştık, şövalye. Bu savaşı kazan — neredeyse bitti!' },
+            { speaker: 'NARRATOR', text: 'Beyaz mermer sütunlar arasında altın kristal gözlü bir figür. İki ucu keskin ışık kılıcı havada süzülüyor...' },
+            { speaker: 'SERA',     text: 'Şövalye... dur. Bu... bu Valerius. Tarikatın Baş Yargıcı. Senin eski hocan.' },
+            { speaker: 'KARUN',    text: 'Tanıdın mı, şövalye? Belki hafızan henüz tam silinmemiştir. Hocanla yeniden karşılaşmak nasıl hissettiriyor?' },
+            { speaker: 'SERA',     text: 'Kârun Valerius\'un gözlerini altın rün kristalleriyle değiştirdi. Artık emirlerine körü körüne uyuyor. Ama içinde bir yerde hâlâ o eski Valerius var... Dikkatli ol.' },
         ],
         9:  [
-            { speaker: 'KARUN',    text: 'Yokluk Alemi\'nin muhafızı. Varolmayan bir varlık. Bunu öldürebilir misin?' },
-            { speaker: 'SERA',     text: 'Gerçek olmayan şeyler yine de acı verebilir. Çok dikkatli ol!' },
+            { speaker: 'NARRATOR', text: 'Gerçeklik parçalanıyor. Obsidyen parçacıklarından oluşan dev bir göz yavaşça şekilleniyor...' },
+            { speaker: 'KARUN',    text: '...Bu... bu benim işim değil. Ben bunu çağırmadım.' },
+            { speaker: 'SERA',     text: 'Ne? Kârun bile bunu kontrol edemiyor! Nihil, Erevorn\'u yutmaya çalışan yaşayan bir yırtık. Şövalye — bu sadece onun değil, herkesin düşmanı!' },
+            { speaker: 'KARUN',    text: 'Bir kez... sadece bir kez... seninle aynı taraftayım. Nihil\'i durdur.' },
         ],
         10: [
-            { speaker: 'KARUN',    text: 'Son olarak... Ejder. Hepsinin anası. Seni bekliyor.' },
-            { speaker: 'SERA',     text: 'Şövalye — bu son savaş. Tüm gücünü topla. Ben her zaman seninleydim.' },
+            { speaker: 'NARRATOR', text: 'Dünyanın Kalbi\'nin kızıl altın enerjisi her yeri kaplıyor. Altın damarlar zeminden geçiyor. Ve orada... kara taht.' },
+            { speaker: 'SERA',     text: 'Şövalye — bu son an. Kârun\'un tahtı Dünyanın Kalbi\'nin tam üzerinde. Ama önce Aetherion bekliyor. Kalbin kadim ejder koruyucusu. Kârun onu mor kristallerle yozlaştırdı.' },
+            { speaker: 'KARUN',    text: 'Sonunda geldin, torun. Evet... seni bekliyordum. Sera\'nın son kanı. Dünyanın Kalbi\'ni kontrol etmem için tek eksik şey sendin.' },
+            { speaker: 'SERA',     text: 'Şövalye! O senin kim olduğunu biliyor. Sen benim soyumsun — tarikatın kurucu kanının son temsilcisisin. Bunun için 200 yıl seni aradı. Tüm gücünü topla. SON SAVAŞ!' },
         ],
     },
 
     boss_post: {
-        1:  [{ speaker: 'SERA',  text: 'Birinci muhafızı yendin! Zindan titredi. Kârun bunu hissetti.' }],
-        2:  [{ speaker: 'SERA',  text: 'Gölge Muhafızı düştü! Her engeli aşıyorsun. Kârun\'u merak etmeye başladım.' }],
-        3:  [
-            { speaker: 'KARUN', text: '...Güçlüsün. Beklenmedik.' },
-            { speaker: 'SERA',  text: 'Kârun\'un sesi değişti. Artık seni hafife almıyor!' },
+        1:  [
+            { speaker: 'SERA',  text: 'Kaelen devrildi. Zincirler çözüldü. Umarım ruhunu özgürce taşıyabilir artık.' },
+            { speaker: 'KARUN', text: '...İlginç. Kaelen 200 yıldır o kapıyı tuttu. Sen birkaç dakikada indirdin. Devam et bakalım.' },
         ],
-        4:  [{ speaker: 'SERA',  text: 'Alev Tanrısı yenildi! Dördüncü bölge sona eriyor. Kârun endişeleniyor.' }],
-        5:  [{ speaker: 'KARUN', text: 'Beşinci bölgeyi de geçtin. Başlamadan bitmeyeceğini anlıyorum artık.' }],
-        6:  [{ speaker: 'SERA',  text: 'Orman ruhu kurtarıldı! Sen gerçek bir şövalye gibi davranıyorsun.' }],
-        7:  [{ speaker: 'KARUN', text: 'Yedinci muhafızım da düştü. Sana saygım arttı. Ama bu bir şeyi değiştirmiyor.' }],
-        8:  [{ speaker: 'SERA',  text: 'İki bölge daha! Şövalye — sen bunu yapabilirsin, buna inanıyorum.' }],
-        9:  [{ speaker: 'KARUN', text: 'Dokuz muhafızım yenildi. Şimdi ben seni bekliyorum. Gel.' }],
+        2:  [
+            { speaker: 'SERA',  text: 'Vaelen\'in gölgesi dağıldı. Bir zamanlar iyi bir insandı. Kârun onu bu hale getirdi.' },
+            { speaker: 'KARUN', text: 'Vaelen hep çok sadıktı. Sonuna kadar. Sana bunu söylüyorum çünkü bundan gurur duyuyorum.' },
+        ],
+        3:  [
+            { speaker: 'SERA',  text: "Grak'thor düştü! Köylüler artık biraz daha özgür. Her kurtardığın esir, her yendiğin boss — bunların hepsi önemli." },
+            { speaker: 'KARUN', text: "Grak'thor işe yarardı. Ama artık işe yaramıyor. Devam et — daha iyilerini tanıştıracağım seninle." },
+        ],
+        4:  [
+            { speaker: 'SERA',  text: 'Ignis yenildi! Ama bak... ölürken bile Kârun\'un adını haykırıyordu. Fanatiği buydu işte.' },
+            { speaker: 'KARUN', text: 'Ignis en sadık askerlerimden biriydi. Bence yanlış taraftasın, şövalye.' },
+        ],
+        5:  [
+            { speaker: 'SERA',  text: 'Kral Alden\'ın laneti çözüldü! İki yüz yıllık buz eridi. Frostgard\'ın son hükümdarı huzura kavuştu.' },
+            { speaker: 'KARUN', text: 'Beşinci bölge. Yarısını geçtin. Başlamadan bitmeyeceğini anlıyorum artık.' },
+        ],
+        6:  [
+            { speaker: 'SERA',  text: 'Lyra... Lyra huzura kavuştu. Teşekkür ederim şövalye. Bu benim için... çok şeydi.' },
+            { speaker: 'KARUN', text: 'Sera ağlıyor mu? İlginç. Zayıflık, her zaman zayıflık.' },
+        ],
+        7:  [
+            { speaker: 'SERA',  text: 'Malakor yokluk boyutuna geri döndü! Kârun\'un en güçlü silahını kırdın. Artık sadece iki bölge kaldı.' },
+            { speaker: 'KARUN', text: 'Yedincisini de geçtin. Sana saygım arttı. Ama bu yaklaşmakta olan sonu değiştirmiyor.' },
+        ],
+        8:  [
+            { speaker: 'SERA',  text: 'Valerius... düştü. Kârun\'un kontrolü kırıldı, son nefesinde seni tanıdı mı? Gördüm... gözlerinde bir şey değişti.' },
+            { speaker: 'KARUN', text: 'Valerius seninle savaşırken hata yaptı. Seni tanımaya çalıştı. Bu onu yavaşlattı. Duygular, her zaman zayıflıktır.' },
+            { speaker: 'SERA',  text: 'Şövalye — bir bölge kaldı. Kârun bekliyor. Hazır mısın?' },
+        ],
+        9:  [
+            { speaker: 'KARUN', text: 'Nihil\'i durdurdun. Ben... beklenmedik. Sana minnetim var. Ama bu, aramızdaki hesabı değiştirmiyor.' },
+            { speaker: 'SERA',  text: 'Kârun bile seni durduramayan şeyi sen durdurdun. Şövalye... artık gerçekten hazırsın. Son bölge. Dünyanın Kalbi.' },
+        ],
     },
 
     npc_rescue: {
@@ -206,6 +245,70 @@ const DIALOGUE_DATA = {
         first_boss_kill:  [{ speaker: 'SERA',     text: 'İlk Boss yenildi! Kârun\'un kalesi çatlamaya başladı.' }],
         first_npc_rescue: [{ speaker: 'SERA',     text: 'Bir tutsağı kurtardın! Kârun güçlünün kazandığını söyler — ama merhamet de bir güçtür.' }],
         many_rescues:     [{ speaker: 'SERA',     text: 'Beş kişiyi kurtardın! Şövalye — sen gerçekten bir kahraman oluyorsun.' }],
+
+        // ── SINIFA ÖZEL SEVİYE ATLAMA FISILTILARI ──────────────────────────────
+        // Büyücü (Mage) — Her seviye atlamada rastgele seçilir
+        level_up_mage: [
+            {
+                speaker: 'SERA',
+                text: 'Damarlarındaki rün ateşi uyanıyor evlat. Hissettiğin o sıcaklık, soyumuzun kadim ışığıdır. Gücünü doğru yere yönlendir, seninle gurur duyuyorum.',
+            },
+            {
+                speaker: 'KARUN',
+                text: 'Bak hele... İki kıvılcım çaktı diye kendini büyücü mü sanıyorsun? Sera sana o oyuncakları kullanırken arkasındaki ölümcül bedeli söylemedi mi?',
+            },
+        ],
+        // Savaşçı (Warrior) — Her seviye atlamada rastgele seçilir
+        level_up_warrior: [
+            {
+                speaker: 'SERA',
+                text: 'Zırhının ağırlığı seni yormasın. O demir, 200 yıl önce büyük babanın Kârun\'un karşısına dikilirken giydiği zırhın aynısıdır. Onun yarım kalan adaletini sen tamamlayacaksın.',
+            },
+            {
+                speaker: 'KARUN',
+                text: 'O kırık kılıçla buraya kadar yürüyebildin demek. Demir yığını! Tarikatın infazcısı olmak sana geçmişini hatırlatıyor mu? O zırhın içinde sadece boş bir kovan olarak öleceksin!',
+            },
+        ],
+        // Okçu (Ranger) — Her seviye atlamada rastgele seçilir
+        level_up_ranger: [
+            {
+                speaker: 'SERA',
+                text: 'Nefesini tut ve hedefini seç. Adımların o kadar hafif ki, zindanın taşları bile seni duyamıyor. Sen bizim karanlıktaki görünmez okumuzsun, harika gidiyorsun.',
+            },
+            {
+                speaker: 'KARUN',
+                text: 'Bir gölge gibi süzüldüğünü mü sanıyorsun? Yayının geriliş sesini 100 kat yukarıdan duyabiliyorum! Fare gibi kaçarak benden kurtulamazsın.',
+            },
+        ],
+
+        // ── ZONE 9: ZAMAN YANKISI ─────────────────────────────────────────────
+        time_echo_spawn: [
+            { speaker: 'KARUN',    text: 'Yokluk Alemine hoş geldin. Burada geçmişin seni kovalar. O yüze bak — tanıdık mı? Tanımalısın. O sensin. Zaman yokluğu içinde kırıldığında bıraktığın parça.' },
+            { speaker: 'SERA',     text: 'Yankını öldürme. Öldüremezsin zaten — o senden bir parça. Onu anlayarak geç. Ama eğer zorlarsan... savaş. Sadece kendini suçlama.' },
+        ],
+
+        // ── ZONE 10: KÂRUN SAHNEYE ÇIKIYOR ───────────────────────────────────
+        karun_final_appears: [
+            { speaker: 'KARUN',    text: 'Aetherion benim için sadece bir zincirdi. Onun ölümü beni özgür kıldı. Şimdi... gerçek savaş başlıyor. Sen Sera\'nın soyusun — ama bu, yeterli değil.' },
+            { speaker: 'SERA',     text: 'Şövalye! Asıl düşman bu — Kârun. 200 yıldır bekledim. Sen bu anın için doğdun. Sonu getir.' },
+        ],
+
+        // ── OYUN SONU DİYALOGLARI ─────────────────────────────────────────────
+        ending_light: [
+            { speaker: 'SERA',     text: 'Yaptığını görüyorum. Çekirdeği yok ediyorsun — kendini de onunla birlikte. Ama hiçbir zaman hata yapmadın. Soyumuz böyle biter: ışıkla.' },
+            { speaker: 'NARRATOR', text: 'Altın Çekirdek parçalandı. 200 yıllık ruhlar zincirleri kırarak yükseldi. Zindan çöktü. Ve sen... artık burada değilsin.' },
+            { speaker: 'SERA',     text: 'İnsanlar seni hatırlamayacak. Ama zindan duvarlarına kazılmış her rün, senin adını fısıldayacak. Elveda, son soyum.' },
+        ],
+        ending_iron: [
+            { speaker: 'KARUN',    text: 'Gücü... aldın? Benden mi çaldın? Sen... sen benden daha güçlü müsün?' },
+            { speaker: 'NARRATOR', text: 'Kârun\'un gücü yeni bir bedene geçti. Zindan hâlâ ayakta. Ejderin nefesi söndü, ama taht boş değil artık.' },
+            { speaker: 'SERA',     text: 'Beklediğim bu değildi. Ama sen hayattasın. Belki... belki bu da bir zaferdir. Sonunda neye dönüşeceğini sen seçeceksin.' },
+        ],
+        ending_dark: [
+            { speaker: 'KARUN',    text: '... Güldürme beni. Sen benden mi daha iyi olacaksın? Bu tahtı hak ettin mi, gerçekten? Bak kendine... bak neye dönüştün.' },
+            { speaker: 'NARRATOR', text: 'Yeni bir Kârun doğdu. Zindan yeniden doldu. Karanlık sürdü — sadece farklı bir el tarafından.' },
+            { speaker: 'SERA',     text: '... Sesini duyamıyorum artık. Sadece boşluk var. Umarım bir gün... geri dönersin.' },
+        ],
     },
 };
 
@@ -295,7 +398,11 @@ const DialogSystem = {
         const BW = W - 14;
         const BH = 102;
         const BX = 7;
-        const BY = H - BH - 7;
+        // Position dialog above the fixed bottom HUD overlay
+        const rect = ctx.canvas.getBoundingClientRect();
+        const scaleY = rect.height > 0 ? (H / rect.height) : 1;
+        const hudMargin = Math.max(8, Math.round(150 * scaleY) + 6);
+        const BY = H - BH - hudMargin;
 
         ctx.save();
 
@@ -343,14 +450,14 @@ const DialogSystem = {
         ctx.textAlign = 'left';
         this._wrapText(ctx, disp, BX + 14, BY + 24, BW - 24, 14, 4);
 
-        // [E] DEVAM prompt — blinks when text finished and not auto-advance
+        // Continue prompt blinks when text finished and not auto-advance.
         if (done && !this._current.auto) {
             const blink = Math.floor(Date.now() / 420) % 2 === 0;
             if (blink) {
                 ctx.font      = "6px 'Press Start 2P'";
                 ctx.fillStyle = sp.color;
                 ctx.textAlign = 'right';
-                ctx.fillText('[E] DEVAM', BX + BW - 10, BY + BH - 9);
+                ctx.fillText('[E/ENTER/TIK] DEVAM', BX + BW - 10, BY + BH - 9);
             }
         }
 
@@ -458,10 +565,32 @@ const DialogSystem = {
         const now  = Date.now();
         const COOL = 22000; // ms between same event
         if (this._evtCooldown[key] && now - this._evtCooldown[key] < COOL) return;
+        const data = DIALOGUE_DATA.events[key];
+        if (!data) return;
+        this._evtCooldown[key] = now;
+        // Sınıfa özel fısıltılar diziyse rastgele bir satır seç
+        if (Array.isArray(data) && data.length > 0 && data[0].speaker) {
+            // Tek diyalog nesnesi veya düz dizi
+            this._enqueue(data, true);
+        } else {
+            this._enqueue(data, true);
+        }
+    },
+
+    // Sınıfa özel level-up fısıltısını tetikle (game.js'ten çağrılır)
+    triggerClassLevelUp(playerClass) {
+        const keyMap = { mage: 'level_up_mage', warrior: 'level_up_warrior', ranger: 'level_up_ranger' };
+        const key = keyMap[playerClass];
+        if (!key) return;
+        const now = Date.now();
+        const COOL = 8000;
+        if (this._evtCooldown[key] && now - this._evtCooldown[key] < COOL) return;
         const lines = DIALOGUE_DATA.events[key];
         if (!lines) return;
         this._evtCooldown[key] = now;
-        this._enqueue(lines, true);
+        // Sera ve Kârun satırından birini rastgele seç
+        const picked = [lines[Math.floor(Math.random() * lines.length)]];
+        this._enqueue(picked, true);
     },
 };
 

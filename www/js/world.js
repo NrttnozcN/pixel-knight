@@ -15,21 +15,75 @@ const World = {
     portal: { x: 0, y: 0, active: false }, // Çıkış portalı
     spawnPoints: { player: {x: 0, y: 0}, enemies: [], chests: [] },
 
+    // Sunum ölçeği — ctx.scale(zoom) ile tüm dünya katmanına uygulanır
+    zoom: 1.35,              // Temel büyütme (%35 daha yakın)
+    _combatZoomBonus: 0,     // Savaş sırasında lerp ile +0.07'ye çıkar
+    _critFlashTimer: 0,      // Kritik vuruş/idam — kısa anlık zum atışı
+
+    getCurrentZoom() {
+        const critBonus = this._critFlashTimer > 0
+            ? Math.sin((this._critFlashTimer / 8) * Math.PI) * 0.04
+            : 0;
+        return this.zoom + this._combatZoomBonus + critBonus;
+    },
+
+    updateZoom(inCombat) {
+        const target = inCombat ? 0.07 : 0.0;
+        this._combatZoomBonus += (target - this._combatZoomBonus) * 0.035;
+        if (this._critFlashTimer > 0) this._critFlashTimer--;
+    },
+
+    // Canvas piksel koordinatını dünya koordinatına çevirir.
+    // Mouse.x/y canvas buffer pikselindedir; ctx.scale(zoom) nedeniyle
+    // dünya koordinatı = canvasPiksel / zoom + kameraOfseti
+    screenToWorld(canvasX, canvasY) {
+        const zoom = this.getCurrentZoom();
+        return {
+            x: canvasX / zoom + this.camera.x,
+            y: canvasY / zoom + this.camera.y
+        };
+    },
+
     // Kamera koordinatları
     camera: {
         x: 0,
         y: 0,
+        _tx: 0,   // lerp hedef x
+        _ty: 0,   // lerp hedef y
         update(playerX, playerY, canvasWidth, canvasHeight) {
-            // Oyuncuyu ekranın ortasında tut
-            this.x = playerX - canvasWidth / 2;
-            this.y = playerY - canvasHeight / 2;
-            
-            // Kamera harita sınırlarının dışına taşmasın
-            const maxCamX = (World.width * World.tileSize) - canvasWidth;
-            const maxCamY = (World.height * World.tileSize) - canvasHeight;
-            
-            this.x = Math.max(0, Math.min(this.x, maxCamX));
-            this.y = Math.max(0, Math.min(this.y, maxCamY));
+            const cls = window.GameEngine && window.GameEngine.selectedClass;
+            const zoom = World.getCurrentZoom();
+            // Efektif görünür alan: zoom uygulandığında daha küçük
+            const logicalW = canvasWidth  / zoom;
+            const logicalH = canvasHeight / zoom;
+
+            // Sınıfa özgü kamera gecikmesi
+            let lerp = 0.92;
+            if (cls === 'warrior') lerp = 0.09;
+            else if (cls === 'ranger') lerp = 0.96;
+            else if (cls === 'mage')   lerp = 0.16;
+
+            this._tx = playerX - logicalW / 2;
+            this._ty = playerY - logicalH / 2;
+
+            this.x += (this._tx - this.x) * lerp;
+            this.y += (this._ty - this.y) * lerp;
+
+            // Mage: büyü yükleme sırasında kozmik titreme
+            if (cls === 'mage' && window.GameEngine && window.GameEngine.player) {
+                const mp = window.GameEngine.player;
+                if (mp.m_phase === 'charge') {
+                    const jitter = (1 - mp.m_phaseTimer / 18) * 1.8;
+                    this.x += (Math.random() - 0.5) * jitter;
+                    this.y += (Math.random() - 0.5) * jitter;
+                }
+            }
+
+            // Sınır klamp — görünür alana göre ayarlanmış
+            const maxCamX = (World.width  * World.tileSize) - logicalW;
+            const maxCamY = (World.height * World.tileSize) - logicalH;
+            this.x = Math.max(0, Math.min(this.x, Math.max(0, maxCamX)));
+            this.y = Math.max(0, Math.min(this.y, Math.max(0, maxCamY)));
         }
     },
 
@@ -182,16 +236,28 @@ const World = {
                 const enemyX = (room.x + Math.floor(Math.random() * (room.w - 2)) + 1) * this.tileSize + this.tileSize / 2;
                 const enemyY = (room.y + Math.floor(Math.random() * (room.h - 2)) + 1) * this.tileSize + this.tileSize / 2;
                 
-                // Zindan derinleştikçe İskelet şansı artar, Slime azalır
+                // Zone'a göre lore uyumlu düşman havuzu
+                const zone = Math.ceil(floorLevel / 10);
                 let type = 'slime';
                 const rand = Math.random();
-                if (floorLevel >= 4) {
-                    type = rand < 0.4 ? 'slime' : (rand < 0.75 ? 'skeleton' : 'slime_shadow');
-                } else if (floorLevel >= 2) {
-                    type = rand < 0.6 ? 'slime' : (rand < 0.85 ? 'skeleton' : 'slime_fire');
-                } else {
-                    type = rand < 0.8 ? 'slime' : 'slime_fire'; // Kat 1: Sadece Slime türleri
-                }
+                const zoneEnemyPools = {
+                    1:  ['slime', 'slime_burning', 'skeleton', 'lost_armor', 'bat'],          // Karanlık Zindan
+                    2:  ['shadow_creature', 'slime_toxic', 'slime_shadow', 'witch', 'blind_worker'],     // Gölge Mağarası
+                    3:  ['mutant_goblin', 'mutant_goblin', 'goblin', 'zombie', 'enslaved_villager'],     // Goblin Yurdu
+                    4:  ['slime_burning', 'demon', 'magma_golem', 'witch', 'charred_priest'],            // Alev Krallığı
+                    5:  ['ice_zombie', 'ice_golem', 'skeleton', 'ice_bear', 'slime'],                    // Donmuş Tundra
+                    6:  ['treant', 'treant', 'spider', 'troll', 'vine_horror'],                          // Orman Tapınağı
+                    7:  ['gargoyle', 'gargoyle', 'demon', 'armored_knight', 'slime_shadow'],             // Şeytan Kalesi
+                    8:  ['lightning_golem', 'ghost_arcanist', 'slime_rune', 'void_wraith', 'witch'],     // Gökyüzü Kalesi
+                    9:  ['void_horror', 'void_wraith', 'slime_void', 'slime_shadow', 'abyss_lord'],      // Yokluk Alemi
+                    10: ['dragon_spawn', 'abyss_lord', 'void_wraith', 'rune_clone', 'dragon_spawn'],     // Ejder Yuvası
+                };
+                const pool = zoneEnemyPools[zone] || ['slime', 'skeleton', 'slime_shadow'];
+                // Yeni düşman tipleri henüz sprite'ı olmayan fallback'lere yönlendirilir
+                const rawType = pool[Math.floor(rand * pool.length)];
+                // Sprite/loji bulunan türlere map et
+                // All lore enemy types now have stat blocks in entities.js — pass through directly
+                type = rawType;
 
                 // Koordinatlar çakışmasın diye minik kaymalar ekle
                 this.spawnPoints.enemies.push({ x: enemyX, y: enemyY, type: type });
@@ -273,12 +339,13 @@ const World = {
 
     // Zindan Karolarını Ekrana Çiz (Culling ile sadece ekranda görünenleri çizer!)
     draw(ctx, canvasWidth, canvasHeight) {
-        if (!this.map || this.map.length === 0) return; // Harita henüz üretilmediyse çizim yapmadan güvenli çıkış yap
+        if (!this.map || this.map.length === 0) return;
+        const zoom = this.getCurrentZoom();
         const startX = Math.floor(this.camera.x / this.tileSize);
         const startY = Math.floor(this.camera.y / this.tileSize);
-        // Ekrana sığan karo sayısı + tolerans
-        const endX = startX + Math.ceil(canvasWidth / this.tileSize) + 1;
-        const endY = startY + Math.ceil(canvasHeight / this.tileSize) + 1;
+        // Görünür karo sayısı = mantıksal görünür genişlik / karo boyutu
+        const endX = startX + Math.ceil(canvasWidth  / (this.tileSize * zoom)) + 2;
+        const endY = startY + Math.ceil(canvasHeight / (this.tileSize * zoom)) + 2;
 
         const limitX = Math.min(this.width, endX);
         const limitY = Math.min(this.height, endY);
@@ -303,45 +370,77 @@ const World = {
         }
     },
 
+    // Her zone için lore'a uygun atmosfer rengi ve sis efekti
+    drawZoneAtmosphere(ctx, floorLevel, canvasWidth, canvasHeight) {
+        const zone = Math.ceil(floorLevel / 10);
+        // Zone atmosfer renkleri (lore'dan: mor yozlaşma, buz mavisi, lav kırmızısı vs.)
+        const zoneAtmos = {
+            1:  { color: 'rgba(80, 0, 120, 0.08)',  pulse: false }, // Mor büyü izleri — Karanlık Zindan
+            2:  { color: 'rgba(40, 0, 80,  0.14)',  pulse: true  }, // Solucan mor kristal — Gölge Mağarası
+            3:  { color: 'rgba(100,60, 0,  0.10)',  pulse: false }, // Sarı zehir dumanı — Goblin Yurdu
+            4:  { color: 'rgba(180,30, 0,  0.15)',  pulse: true  }, // Lav kırmızısı — Alev Krallığı
+            5:  { color: 'rgba(100,180,220,0.12)',  pulse: false }, // Buz mavisi — Donmuş Tundra
+            6:  { color: 'rgba(60, 120, 0, 0.10)',  pulse: false }, // Zehirli yeşil — Orman Tapınağı
+            7:  { color: 'rgba(20,  0, 20, 0.18)',  pulse: true  }, // Obsidyen karanlık — Şeytan Kalesi
+            8:  { color: 'rgba(200,200,255,0.07)',  pulse: false }, // Gökyüzü parlak — Gökyüzü Kalesi
+            9:  { color: 'rgba(60,  0,100, 0.20)',  pulse: true  }, // Gerçeklik yırtığı — Yokluk Alemi
+            10: { color: 'rgba(180,100, 0, 0.16)',  pulse: true  }, // Altın Kalp enerjisi — Ejder Yuvası
+        };
+        const atmos = zoneAtmos[zone];
+        if (!atmos) return;
+
+        ctx.save();
+        const alpha = atmos.pulse
+            ? parseFloat(atmos.color.split(',')[3]) * (0.7 + Math.sin(Date.now() / 1200) * 0.3)
+            : 1.0;
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = atmos.color;
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+        ctx.restore();
+    },
+
     // Oyuncunun etrafındaki dinamik meşale aydınlatma maskesi (Radial Gradient Shadow Overlay)
     drawTorchLight(ctx, playerX, playerY, canvasWidth, canvasHeight) {
-        // Ekrandaki oyuncu merkez koordinatını hesapla
+        const zoom    = this.getCurrentZoom();
+        // Mantıksal canvas boyutu — ctx.scale(zoom) aktifken bu boyutta maskCanvas
+        // çizmek ekranı tam kaplar (scale uygulandığında logicalW*zoom = canvasWidth)
+        const logicalW = canvasWidth  / zoom;
+        const logicalH = canvasHeight / zoom;
+
+        // Oyuncunun mantıksal ekran konumu (dünya pikseli - kamera ofseti)
         const screenX = playerX - this.camera.x;
         const screenY = playerY - this.camera.y;
 
-        ctx.save();
-        
-        // Gölgelendirme rengini zindan hissi veren çok koyu bir lacivert/siyah yap
-        const shadowColor = '#030305';
+        // Işık yarıçapı: savaşta ve yakın kamerada biraz genişler
+        const combatExpand = this._combatZoomBonus / 0.07; // 0→1
+        const innerR = 38 + combatExpand * 14;   // 38px → 52px savaşta
+        const outerR = 185 + combatExpand * 40;  // 185px → 225px savaşta
 
-        // 1. Ekran boyutunda siyah bir maske katmanı oluştur
+        ctx.save();
+
         const maskCanvas = document.createElement('canvas');
-        maskCanvas.width = canvasWidth;
-        maskCanvas.height = canvasHeight;
+        maskCanvas.width  = Math.ceil(logicalW);
+        maskCanvas.height = Math.ceil(logicalH);
         const maskCtx = maskCanvas.getContext('2d');
 
-        // Komple siyah boya
-        maskCtx.fillStyle = shadowColor;
-        maskCtx.fillRect(0, 0, canvasWidth, canvasHeight);
+        maskCtx.fillStyle = '#030305';
+        maskCtx.fillRect(0, 0, logicalW, logicalH);
 
-        // 2. Oyuncunun merkezinde ışık çemberini "oy" (Destination-Out ile sil)
-        // Işık yarıçapı: 160 piksel
         const gradient = maskCtx.createRadialGradient(
-            screenX, screenY, 30,  // Sıcak meşale göbeği (tam ışık)
-            screenX, screenY, 170  // Yavaşça kararma yarıçapı
+            screenX, screenY, innerR,
+            screenX, screenY, outerR
         );
-        gradient.addColorStop(0, 'rgba(0, 0, 0, 1.0)'); // Tamamen delik/şeffaf
-        gradient.addColorStop(0.4, 'rgba(0, 0, 0, 0.8)'); // Hafif gölge başlangıcı
-        gradient.addColorStop(0.8, 'rgba(0, 0, 0, 0.15)'); // Koyu gölge
-        gradient.addColorStop(1, 'rgba(0, 0, 0, 0.0)'); // Tamamen siyah
+        gradient.addColorStop(0,   'rgba(0,0,0,1.0)');
+        gradient.addColorStop(0.35,'rgba(0,0,0,0.85)');
+        gradient.addColorStop(0.75,'rgba(0,0,0,0.18)');
+        gradient.addColorStop(1,   'rgba(0,0,0,0.0)');
 
         maskCtx.globalCompositeOperation = 'destination-out';
         maskCtx.fillStyle = gradient;
         maskCtx.beginPath();
-        maskCtx.arc(screenX, screenY, 175, 0, Math.PI * 2);
+        maskCtx.arc(screenX, screenY, outerR + 10, 0, Math.PI * 2);
         maskCtx.fill();
 
-        // 3. Maskeyi ana ekranın üstüne çiz
         ctx.globalCompositeOperation = 'source-over';
         ctx.drawImage(maskCanvas, 0, 0);
 
